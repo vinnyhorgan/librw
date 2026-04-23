@@ -1,0 +1,179 @@
+# rw — Implementation Progress
+
+## Status: NOT STARTED
+
+## Phase Overview
+
+| Phase | Files | Status | Notes |
+|---|---|---|---|
+| 1. Foundation | `rw.h`, `rw_engine.c` | Not started | Types, math, engine lifecycle |
+| 2. Frame hierarchy | `rw_frame.c` | Not started | Transform tree, dirty propagation |
+| 3. GL backend core | `rw_gl.c` (partial), `rw_raster.c`, `rw_material.c` | Not started | Shaders, state cache, textures |
+| 4. Geometry + Pipeline | `rw_geometry.c`, `rw_pipeline.c` | Not started | Mesh building, GPU instancing, render |
+| 5. Scene graph | `rw_scene.c` | Not started | Atomic, clump, camera, light, world |
+| 6. Immediate mode | `rw_render.c` | Not started | im2d + im3d |
+| 7. Animation | `rw_skin.c` | Not started | Skin + HAnim |
+| 8. Polish | `test_gta.c`, Makefile | Not started | Integration demo |
+
+## Phase 1: Foundation
+
+### rw.h
+- [ ] Primitive types (int8–uint64, float32, bool32)
+- [ ] Math types (V2d, V3d, V4d, Quat, RGBA, RGBAf, TexCoords)
+- [ ] RwMatrix (4x3 aligned layout)
+- [ ] RwRawMatrix (4x4 for GPU)
+- [ ] Geometry vertex types (Im2DVertex, Im3DVertex)
+- [ ] BBox, Sphere, Rect
+- [ ] Intrusive linked list (RwLink, RwLinkList)
+- [ ] Forward declarations
+- [ ] All enums (LightType, CombineOp, PrimitiveType, Geo flags, Lock flags, RenderState, etc.)
+- [ ] Core structs (Frame, Geometry, Material, Raster, Image, Texture, TexDict, Atomic, Clump, Camera, Light, World, Pipeline, Skin, HAnimHier)
+- [ ] Engine global struct
+- [ ] All API function declarations
+- [ ] Static inline math (v3d ops, matrix ops, quaternion ops)
+
+### rw_engine.c
+- [ ] rw_engine_init (memory setup)
+- [ ] rw_engine_open (device init)
+- [ ] rw_engine_start (shader compile, state init)
+- [ ] rw_engine_stop
+- [ ] rw_engine_close
+- [ ] rw_engine_term
+- [ ] rw_set_render_state / rw_get_render_state
+- [ ] Linked list helpers (init, add, remove)
+- [ ] Memory wrappers (rw_malloc, rw_free, etc.)
+
+### Tests
+- [ ] test_math.c — vector/matrix/quaternion unit tests
+- [ ] test_clear.c — engine lifecycle + screen clear
+
+## Phase 2: Frame Hierarchy
+
+### rw_frame.c
+- [ ] rw_frame_create
+- [ ] rw_frame_destroy
+- [ ] rw_frame_add_child
+- [ ] rw_frame_remove_child
+- [ ] rw_frame_get_ltm (dirty propagation)
+- [ ] rw_frame_set_matrix
+- [ ] rw_frame_translate
+- [ ] rw_frame_rotate
+- [ ] rw_frame_scale
+- [ ] rw_frame_sync_dirty (hierarchy LTM update)
+- [ ] updateObjects (mark dirty, add to dirty list)
+- [ ] syncHierarchyLTM (recursive LTM computation)
+
+### Tests
+- [ ] test_frame.c — hierarchy creation, LTM computation
+
+## Phase 3: GL Backend Core + Textures
+
+### rw_gl.c (partial)
+- [ ] GL state cache struct and flush functions
+- [ ] Shader compilation from string literals
+- [ ] Shader permutation management
+- [ ] Shader source: default.vert, default.frag (as string literals)
+- [ ] Shader source: im2d.vert, im2d.frag
+- [ ] rw_gl_init (compile all shaders, cache uniform locations)
+- [ ] rw_gl_shutdown
+
+### rw_raster.c
+- [ ] rw_raster_create
+- [ ] rw_raster_destroy
+- [ ] rw_raster_lock / rw_raster_unlock
+- [ ] rw_image_load (stb_image bridge)
+- [ ] rw_image_destroy
+- [ ] rw_raster_from_image (GL texture upload)
+
+### rw_material.c
+- [ ] rw_material_create / destroy
+- [ ] rw_material_set_texture / color / surface
+- [ ] rw_texture_create / destroy
+- [ ] rw_texture_set_filter / addressing
+- [ ] rw_texdict_create / destroy / add / find
+
+## Phase 4: Geometry + Pipeline
+
+### rw_geometry.c
+- [ ] rw_geometry_create
+- [ ] rw_geometry_destroy
+- [ ] rw_geometry_lock / unlock
+- [ ] rw_geometry_build_meshes (group triangles by material)
+- [ ] rw_geometry_calc_bounding_sphere
+- [ ] allocateData (vertex array allocation)
+- [ ] allocateMeshes (mesh header + mesh array)
+
+### rw_pipeline.c
+- [ ] Default pipeline: instance callback
+- [ ] Default pipeline: render callback
+- [ ] Interleaved vertex buffer packing
+- [ ] GL instance: VBO/IBO creation and upload
+- [ ] GL render: bind buffers, set attrib pointers, iterate meshes
+- [ ] Material/texture state setting per mesh
+- [ ] Light uniform upload
+- [ ] World matrix upload
+
+### Tests
+- [ ] test_triangle.c — single textured triangle renders
+
+## Phase 5: Scene Graph
+
+### rw_scene.c
+- [ ] rw_atomic_create / destroy / set_geometry / set_frame / set_pipeline / set_render_cb / render
+- [ ] rw_clump_create / destroy / get_frame / set_frame / add_atomic / remove_atomic / add_light / render
+- [ ] rw_world_create / destroy / add_clump / remove_clump / add_light / remove_light / render / enumerate_lights
+- [ ] rw_camera_create / destroy / set_frame / begin_update / end_update / clear / set_fov / set_view_window / set_near_far / frustum_test_sphere
+- [ ] rw_light_create / destroy / set_color / set_radius / set_frame
+- [ ] Camera: view matrix computation (inverse of frame LTM)
+- [ ] Camera: projection matrix computation
+- [ ] Camera: frustum plane extraction
+- [ ] World: light enumeration (ambient + directional + local)
+- [ ] World: render loop (iterate clumps → atomics → pipeline)
+
+### Tests
+- [ ] test_scene.c — full scene with camera, lights, multiple clumps, frustum culling
+
+## Phase 6: Immediate Mode
+
+### rw_render.c
+- [ ] rw_im2d_render_primitive
+- [ ] rw_im2d_render_indexed
+- [ ] rw_im3d_transform
+- [ ] rw_im3d_render_primitive
+- [ ] rw_im3d_render_indexed
+- [ ] rw_im3d_end
+- [ ] im2d: dynamic VBO, shader, pixel-to-NDC transform
+- [ ] im3d: dynamic VBO, shader, world transform
+
+### Tests
+- [ ] test_im2d.c — 2D overlays render on top of 3D scene
+
+## Phase 7: Animation
+
+### rw_skin.c
+- [ ] rw_skin_create / destroy
+- [ ] rw_skin_set_data (indices, weights, inverse matrices)
+- [ ] rw_skin_set_pipeline
+- [ ] rw_hanim_create / destroy
+- [ ] rw_hanim_attach (connect nodes to frames)
+- [ ] rw_hanim_interpolate (quaternion slerp + translation lerp)
+- [ ] rw_hanim_update_matrices (hierarchy traversal, PUSH/POP)
+- [ ] GL: skin vertex shader permutation
+- [ ] GL: bone matrix upload (global × inverse_bind)
+- [ ] GL: skinned vertex attrib setup (weights + indices)
+
+### Tests
+- [ ] test_skin.c — skeletal animation renders correctly
+
+## Phase 8: Polish
+
+- [ ] Makefile (library + all tests)
+- [ ] test_gta.c — mini GTA-like demo
+- [ ] Final line count verification (~4,000 target)
+- [ ] Code review pass (consistency, no leaks, no GL errors)
+
+## Change Log
+
+| Date | Phase | What Changed |
+|---|---|---|
+| — | — | Initial plan created |
