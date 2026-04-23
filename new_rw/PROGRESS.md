@@ -1,12 +1,12 @@
 # rw — Implementation Progress
 
-## Status: NOT STARTED
+## Status: Phase 1 IN PROGRESS
 
 ## Phase Overview
 
 | Phase | Files | Status | Notes |
 |---|---|---|---|
-| 1. Foundation | `rw.h`, `rw_engine.c` | Not started | Types, math, engine lifecycle |
+| 1. Foundation | `rw.h`, `rw_engine.c` | Done | Types, math, engine lifecycle — compiles clean |
 | 2. Frame hierarchy | `rw_frame.c` | Not started | Transform tree, dirty propagation |
 | 3. GL backend core | `rw_gl.c` (partial), `rw_raster.c`, `rw_material.c` | Not started | Shaders, state cache, textures |
 | 4. Geometry + Pipeline | `rw_geometry.c`, `rw_pipeline.c` | Not started | Mesh building, GPU instancing, render |
@@ -18,30 +18,30 @@
 ## Phase 1: Foundation
 
 ### rw.h
-- [ ] Primitive types (int8–uint64, float32, bool32)
-- [ ] Math types (V2d, V3d, V4d, Quat, RGBA, RGBAf, TexCoords)
-- [ ] RwMatrix (4x3 aligned layout)
-- [ ] RwRawMatrix (4x4 for GPU)
-- [ ] Geometry vertex types (Im2DVertex, Im3DVertex)
-- [ ] BBox, Sphere, Rect
-- [ ] Intrusive linked list (RwLink, RwLinkList)
-- [ ] Forward declarations
-- [ ] All enums (LightType, CombineOp, PrimitiveType, Geo flags, Lock flags, RenderState, etc.)
-- [ ] Core structs (Frame, Geometry, Material, Raster, Image, Texture, TexDict, Atomic, Clump, Camera, Light, World, Pipeline, Skin, HAnimHier)
-- [ ] Engine global struct
-- [ ] All API function declarations
-- [ ] Static inline math (v3d ops, matrix ops, quaternion ops)
+- [x] Primitive types (int8–uint64, float32, bool32)
+- [x] Math types (V2d, V3d, V4d, Quat, RGBA, RGBAf, TexCoords)
+- [x] RwMatrix (4x3 aligned layout)
+- [x] RwRawMatrix (4x4 for GPU)
+- [x] Geometry vertex types (Im2DVertex, Im3DVertex)
+- [x] BBox, Sphere, Rect
+- [x] Intrusive linked list (RwLink, RwLinkList)
+- [x] Forward declarations
+- [x] All enums (LightType, CombineOp, PrimitiveType, Geo flags, Lock flags, RenderState, etc.)
+- [x] Core structs (Frame, Geometry, Material, Raster, Image, Texture, TexDict, Atomic, Clump, Camera, Light, World, Pipeline, Skin, HAnimHier)
+- [x] Engine global struct
+- [x] All API function declarations
+- [x] Static inline math (v3d ops, matrix ops, quaternion ops)
 
 ### rw_engine.c
-- [ ] rw_engine_init (memory setup)
-- [ ] rw_engine_open (device init)
-- [ ] rw_engine_start (shader compile, state init)
-- [ ] rw_engine_stop
-- [ ] rw_engine_close
-- [ ] rw_engine_term
-- [ ] rw_set_render_state / rw_get_render_state
-- [ ] Linked list helpers (init, add, remove)
-- [ ] Memory wrappers (rw_malloc, rw_free, etc.)
+- [x] rw_engine_init (memory setup)
+- [x] rw_engine_open (device init)
+- [x] rw_engine_start (shader compile, state init)
+- [x] rw_engine_stop
+- [x] rw_engine_close
+- [x] rw_engine_term
+- [x] rw_set_render_state / rw_get_render_state
+- [x] Linked list helpers (init, add, remove)
+- [x] Memory wrappers (rw_malloc, rw_free, etc.)
 
 ### Tests
 - [ ] test_math.c — vector/matrix/quaternion unit tests
@@ -176,4 +176,4 @@
 
 | Date | Phase | What Changed |
 |---|---|---|
-| — | — | Initial plan created |
+| 2026-04-23 | 1 | rw.h (~460 lines), rw_engine.c (~110 lines) — clean compile with -Wall -Wextra -Werror |
