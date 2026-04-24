@@ -1,4 +1,5 @@
 #include "rw.h"
+#include <glad/gles2.h>
 
 #include <math.h>
 #include <string.h>
@@ -488,8 +489,17 @@ rw_camera_end_update(RwCamera *c)
 void
 rw_camera_clear(RwCamera *c, uint32_t flags)
 {
+    GLbitfield mask = 0;
+
     (void)c;
-    (void)flags;
+    if (flags & RW_CAMERA_CLEAR_IMAGE)
+        mask |= GL_COLOR_BUFFER_BIT;
+    if (flags & RW_CAMERA_CLEAR_Z)
+        mask |= GL_DEPTH_BUFFER_BIT;
+    if (flags & RW_CAMERA_CLEAR_STENCIL)
+        mask |= GL_STENCIL_BUFFER_BIT;
+    if (mask)
+        glClear(mask);
 }
 
 void

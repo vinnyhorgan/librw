@@ -141,7 +141,6 @@ static const char *shader_uniform_names[U_NUM_UNIFORMS] = {
 /* ---- Shader Sources ---- */
 
 static const char *default_vert_src =
-    "#version 100\n"
     "precision highp float;\n"
     "uniform mat4 u_proj;\n"
     "uniform mat4 u_view;\n"
@@ -219,12 +218,11 @@ static const char *default_vert_src =
     "}\n";
 
 static const char *default_frag_src =
-    "#version 100\n"
     "precision mediump float;\n"
     "uniform sampler2D tex0;\n"
-    "uniform vec4 u_alpha_ref;\n"
-    "uniform vec4 u_fog_data;\n"
-    "uniform vec4 u_fog_color;\n"
+    "uniform highp vec4 u_alpha_ref;\n"
+    "uniform highp vec4 u_fog_data;\n"
+    "uniform highp vec4 u_fog_color;\n"
     "varying vec2 v_tex0;\n"
     "varying vec4 v_color;\n"
     "varying float v_fog;\n"
@@ -237,7 +235,6 @@ static const char *default_frag_src =
     "}\n";
 
 static const char *im2d_vert_src =
-    "#version 100\n"
     "precision highp float;\n"
     "uniform mat4 u_xform;\n"
     "attribute vec3 in_pos;\n"
@@ -252,7 +249,6 @@ static const char *im2d_vert_src =
     "}\n";
 
 static const char *im2d_frag_src =
-    "#version 100\n"
     "precision mediump float;\n"
     "uniform sampler2D tex0;\n"
     "varying vec2 v_tex0;\n"
@@ -262,7 +258,6 @@ static const char *im2d_frag_src =
     "}\n";
 
 static const char *im3d_vert_src =
-    "#version 100\n"
     "precision highp float;\n"
     "uniform mat4 u_proj;\n"
     "uniform mat4 u_view;\n"
@@ -276,7 +271,6 @@ static const char *im3d_vert_src =
     "}\n";
 
 static const char *im3d_lit_vert_src =
-    "#version 100\n"
     "precision highp float;\n"
     "uniform mat4 u_proj;\n"
     "uniform mat4 u_view;\n"
@@ -320,7 +314,6 @@ static const char *im3d_lit_vert_src =
     "}\n";
 
 static const char *im3d_frag_src =
-    "#version 100\n"
     "precision mediump float;\n"
     "varying vec4 v_color;\n"
     "void main(){\n"

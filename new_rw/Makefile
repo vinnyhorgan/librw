@@ -6,7 +6,7 @@ OBJ_DIR := $(BUILD_DIR)/obj
 BIN_DIR := $(BUILD_DIR)/bin
 
 CPPFLAGS ?=
-CPPFLAGS += -I. -Ivendor/glad/include
+CPPFLAGS += -I. -Ivendor/glad/include -Ivendor/glfw/include
 CFLAGS ?= -std=c99 -Wall -Wextra -Werror -pedantic -O2
 LDFLAGS ?=
 LDLIBS ?= -lm
@@ -20,6 +20,7 @@ LIB_SRCS := \
 	rw_material.c \
 	rw_pipeline.c \
 	rw_raster.c \
+	rw_render.c \
 	rw_scene.c \
 	rw_skin.c
 LIB_OBJS := $(LIB_SRCS:%.c=$(OBJ_DIR)/%.o)
@@ -27,6 +28,9 @@ LIB_DEPS := $(LIB_OBJS:.o=.d)
 
 TEST_NAMES := math frame material geometry scene skin
 TEST_BINS := $(TEST_NAMES:%=$(BIN_DIR)/test_%)
+
+RENDER_TEST_BIN := $(BIN_DIR)/test_render
+RENDER_TEST_LDLIBS := -lglfw -ldl
 
 .PHONY: all test check clean
 
@@ -41,8 +45,11 @@ $(OBJ_DIR)/%.o: %.c rw.h | $(OBJ_DIR)
 $(BIN_DIR)/test_%: tests/test_%.c $(LIB) | $(BIN_DIR)
 	$(CC) $(CPPFLAGS) $(CFLAGS) -MMD -MP $< $(LIB) $(LDFLAGS) $(LDLIBS) -o $@
 
-test check: $(TEST_BINS)
-	@set -e; for test in $(TEST_BINS); do printf '%s\n' "==> $$test"; "$$test"; done
+$(RENDER_TEST_BIN): tests/test_render.c $(LIB) | $(BIN_DIR)
+	$(CC) $(CPPFLAGS) $(CFLAGS) -MMD -MP $< $(LIB) $(LDFLAGS) $(LDLIBS) $(RENDER_TEST_LDLIBS) -o $@
+
+test check: $(TEST_BINS) $(RENDER_TEST_BIN)
+	@set -e; for test in $(TEST_BINS) $(RENDER_TEST_BIN); do printf '%s\n' "==> $$test"; "$$test"; done
 
 $(BUILD_DIR) $(OBJ_DIR) $(BIN_DIR):
 	mkdir -p $@

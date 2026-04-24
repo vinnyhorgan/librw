@@ -1,4 +1,5 @@
 #include "rw.h"
+#include "rw_gl_internal.h"
 
 #include <string.h>
 
@@ -72,7 +73,9 @@ rw_skin_set_data(RwSkin *skin, uint8_t *indices, float *weights, float *inv_matr
 void
 rw_skin_set_pipeline(RwAtomic *a)
 {
-    (void)a;
+    if (!a || !a->geometry)
+        return;
+    rw_atomic_set_pipeline(a, rw_gl_skin_pipeline());
 }
 
 RwHAnimHier *
