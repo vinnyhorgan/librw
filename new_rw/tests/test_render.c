@@ -17,6 +17,7 @@ test_render_triangle(void)
     RwWorld *world;
     RwCamera *camera;
     RwFrame *cam_frame;
+    RwFrame *atomic_frame;
     RwMaterial *mat;
     int w = 256, h = 256;
     uint8_t pixels[4];
@@ -48,6 +49,8 @@ test_render_triangle(void)
 
     atomic = rw_atomic_create();
     assert(atomic);
+    atomic_frame = rw_frame_create();
+    assert(atomic_frame);
 
     geo = rw_geometry_create(3, 1, RW_GEO_POSITIONS | RW_GEO_PRELIT);
     assert(geo);
@@ -86,12 +89,14 @@ test_render_triangle(void)
 
     rw_atomic_set_geometry(atomic, geo);
     rw_geometry_destroy(geo);
+    rw_atomic_set_frame(atomic, atomic_frame);
 
     rw_atomic_set_pipeline(atomic, rw_gl_default_pipeline());
     rw_clump_add_atomic(clump, atomic);
     rw_world_add_clump(world, clump);
 
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+    glViewport(0, 0, w, h);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     rw_world_render(world);
@@ -103,10 +108,10 @@ test_render_triangle(void)
     glReadPixels(w / 2, h / 2, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
     fprintf(stderr, "center pixel: R=%d G=%d B=%d A=%d\n", pixels[0], pixels[1], pixels[2], pixels[3]);
 
-    /* TODO: pixel verification deferred — triangle rasterization needs camera/projection tuning.
-       For now, assert no GL errors and no crash, which validates the full GPU pipeline. */
+    assert(pixels[0] || pixels[1] || pixels[2]);
 
     rw_clump_destroy(clump);
+    rw_frame_destroy(atomic_frame);
     rw_world_destroy(world);
     rw_camera_destroy(camera);
     rw_frame_destroy(cam_frame);

@@ -68,6 +68,7 @@ void  rw_gl_upload_skin_matrices(RwHAnimHier *hier, RwSkin *skin, int shader_idx
 int   rw_gl_select_shader(int num_dir, int num_point, int is_skin);
 unsigned int rw_gl_get_program(int shader_idx);
 RwShaderUniforms *rw_gl_get_uniforms(int shader_idx);
+unsigned int rw_gl_get_white_texture(void);
 
 void  rw_gl_upload_raster(RwRaster *r);
 void  rw_gl_set_texture_sampler(RwRaster *r, int filter, int address_u, int address_v);

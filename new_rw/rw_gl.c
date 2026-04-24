@@ -130,6 +130,7 @@ rw_gl_state_flush_render(void)
 
 static unsigned int shader_programs[SHADER_COUNT];
 static RwShaderUniforms shader_uniforms[SHADER_COUNT];
+static unsigned int white_texture;
 
 static const char *shader_uniform_names[U_NUM_UNIFORMS] = {
     "u_proj", "u_view", "u_world", "u_amb_light",
@@ -465,18 +466,15 @@ rw_gl_set_uniform_vec4(int loc, const float *v)
 void
 rw_gl_upload_matrix(int loc, const RwMatrix *m)
 {
-    RwRawMatrix raw, transposed;
+    RwRawMatrix raw;
     rw_matrix_to_raw(&raw, m);
-    rw_raw_matrix_transpose(&transposed, &raw);
-    rw_gl_set_uniform_mat4(loc, &transposed);
+    rw_gl_set_uniform_mat4(loc, &raw);
 }
 
 void
 rw_gl_upload_raw_matrix(int loc, const RwRawMatrix *raw)
 {
-    RwRawMatrix transposed;
-    rw_raw_matrix_transpose(&transposed, raw);
-    rw_gl_set_uniform_mat4(loc, &transposed);
+    rw_gl_set_uniform_mat4(loc, raw);
 }
 
 /* ---- Texture Upload ---- */
@@ -535,6 +533,24 @@ rw_gl_set_texture_sampler(RwRaster *r, int filter, int address_u, int address_v)
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, wrap_map[address_v]);
 }
 
+unsigned int
+rw_gl_get_white_texture(void)
+{
+    static const uint8_t white[4] = {255, 255, 255, 255};
+
+    if (!white_texture) {
+        glGenTextures(1, &white_texture);
+        rw_gl_state_bind_texture(0, white_texture);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 1, 1, 0,
+                     GL_RGBA, GL_UNSIGNED_BYTE, white);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    }
+    return white_texture;
+}
+
 /* ---- Device Init/Shutdown ---- */
 
 int
@@ -552,6 +568,10 @@ rw_gl_device_init(void)
 int
 rw_gl_device_shutdown(void)
 {
+    if (white_texture) {
+        glDeleteTextures(1, &white_texture);
+        white_texture = 0;
+    }
     delete_all_shaders();
     gl_state_reset();
     return 1;
@@ -563,12 +583,14 @@ void
 rw_gl_set_camera(RwCamera *cam)
 {
     int i;
+    int width, height;
 
     if (!cam) return;
 
-    glViewport(0, 0,
-               cam->frame_buffer ? cam->frame_buffer->width : 0,
-               cam->frame_buffer ? cam->frame_buffer->height : 0);
+    width = cam->frame_buffer ? cam->frame_buffer->width : 0;
+    height = cam->frame_buffer ? cam->frame_buffer->height : 0;
+    if (width > 0 && height > 0)
+        glViewport(0, 0, width, height);
 
     for (i = SHADER_DEFAULT; i < SHADER_COUNT; i++) {
         if (!shader_programs[i]) continue;
@@ -659,7 +681,7 @@ rw_gl_upload_skin_matrices(RwHAnimHier *hier, RwSkin *skin, int shader_idx)
     rw_gl_state_use_program(shader_programs[shader_idx]);
 
     for (i = 0; i < hier->num_nodes && i < 64; i++) {
-        RwRawMatrix world_raw, inv_raw, result, transposed;
+        RwRawMatrix world_raw, inv_raw, result;
         float *inv = &skin->inverse_matrices[i * 16];
 
         rw_matrix_to_raw(&world_raw, &hier->matrices[i]);
@@ -674,8 +696,7 @@ rw_gl_upload_skin_matrices(RwHAnimHier *hier, RwSkin *skin, int shader_idx)
         inv_raw.pos.z    = inv[14]; inv_raw.posw     = inv[15];
 
         rw_raw_matrix_multiply(&result, &world_raw, &inv_raw);
-        rw_raw_matrix_transpose(&transposed, &result);
-        memcpy(matrices[i], &transposed, 64);
+        memcpy(matrices[i], &result, 64);
     }
 
     glUniformMatrix4fv(u->locations[U_BONE_MATRICES],

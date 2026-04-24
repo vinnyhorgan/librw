@@ -146,6 +146,8 @@ rw_atomic_render(RwAtomic *a)
 
     if (a->render_cb)
         a->render_cb(a);
+    if (a->pipeline && a->pipeline->instance && a->geometry && !a->geometry->gl_data)
+        a->pipeline->instance(a);
     if (a->pipeline && a->pipeline->render)
         a->pipeline->render(a);
 }

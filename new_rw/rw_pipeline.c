@@ -97,10 +97,10 @@ default_instance(RwAtomic *a)
                 fp[3] = geo->skin->weights[i * 4 + 3];
                 {
                     uint8_t *ip = v + data->indices_offset;
-                    ip[0] = geo->skin->bone_indices[i * 4 + 0] & 0x3F;
-                    ip[1] = geo->skin->bone_indices[i * 4 + 1] & 0x3F;
-                    ip[2] = geo->skin->bone_indices[i * 4 + 2] & 0x3F;
-                    ip[3] = geo->skin->bone_indices[i * 4 + 3] & 0x3F;
+                    ip[0] = geo->skin->bone_indices[i * 4 + 0];
+                    ip[1] = geo->skin->bone_indices[i * 4 + 1];
+                    ip[2] = geo->skin->bone_indices[i * 4 + 2];
+                    ip[3] = geo->skin->bone_indices[i * 4 + 3];
                 }
             }
         }
@@ -213,6 +213,8 @@ default_render(RwAtomic *a)
     data = (RwGlMeshData *)geo->gl_data;
 
     if (!geo->mesh_header) return;
+    if (rw_engine.current_camera)
+        rw_gl_set_camera(rw_engine.current_camera);
 
     memset(&lights, 0, sizeof(lights));
     if (a->world)
@@ -287,13 +289,15 @@ default_render(RwAtomic *a)
                 if (r->gl.texid) {
                     rw_gl_state_bind_texture(0, r->gl.texid);
                     rw_gl_set_texture_sampler(r,
-                        (mat->texture->filter_addressing >> 16) & 0xFF,
+                        mat->texture->filter_addressing & 0xFF,
                         (mat->texture->filter_addressing >> 8) & 0xFF,
-                        mat->texture->filter_addressing & 0xFF);
+                        (mat->texture->filter_addressing >> 12) & 0xFF);
                 }
             } else {
-                rw_gl_state_bind_texture(0, 0);
+                rw_gl_state_bind_texture(0, rw_gl_get_white_texture());
             }
+        } else {
+            rw_gl_state_bind_texture(0, rw_gl_get_white_texture());
         }
 
         glDrawElements(GL_TRIANGLES, mesh->num_indices,

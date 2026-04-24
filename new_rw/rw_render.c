@@ -4,6 +4,71 @@
 
 #include <string.h>
 
+static int
+rw_prim_to_gl(RwPrimitiveType type, GLenum *gl_type, int *min_count)
+{
+    switch (type) {
+    case RW_PRIM_TRILIST:   *gl_type = GL_TRIANGLES;      *min_count = 3; return 1;
+    case RW_PRIM_TRISTRIP:  *gl_type = GL_TRIANGLE_STRIP; *min_count = 3; return 1;
+    case RW_PRIM_TRIFAN:    *gl_type = GL_TRIANGLE_FAN;   *min_count = 3; return 1;
+    case RW_PRIM_LINELIST:  *gl_type = GL_LINES;          *min_count = 2; return 1;
+    case RW_PRIM_POLYLINE:  *gl_type = GL_LINE_STRIP;     *min_count = 2; return 1;
+    case RW_PRIM_POINTLIST: *gl_type = GL_POINTS;         *min_count = 1; return 1;
+    default: return 0;
+    }
+}
+
+static void
+rw_identity_raw(RwRawMatrix *m)
+{
+    memset(m, 0, sizeof(*m));
+    m->right.x = 1.0f;
+    m->up.y = 1.0f;
+    m->at.z = 1.0f;
+    m->posw = 1.0f;
+}
+
+static void
+rw_im2d_xform(RwRawMatrix *xform)
+{
+    RwCamera *cam = rw_engine.current_camera;
+    int w = cam && cam->frame_buffer ? cam->frame_buffer->width : 0;
+    int h = cam && cam->frame_buffer ? cam->frame_buffer->height : 0;
+
+    if (w <= 0 || h <= 0) {
+        GLint vp[4];
+        glGetIntegerv(GL_VIEWPORT, vp);
+        w = vp[2];
+        h = vp[3];
+    }
+
+    memset(xform, 0, sizeof(*xform));
+    xform->right.x = w > 0 ? 2.0f / (float)w : 1.0f;
+    xform->up.y = h > 0 ? -2.0f / (float)h : 1.0f;
+    xform->at.z = 1.0f;
+    xform->pos.x = w > 0 ? -1.0f : 0.0f;
+    xform->pos.y = h > 0 ? 1.0f : 0.0f;
+    xform->posw = 1.0f;
+}
+
+static void
+rw_im3d_lit_state(RwShaderUniforms *u)
+{
+    RwRawMatrix world;
+    RwWorldLights lights;
+    float one[4] = {1.0f, 1.0f, 1.0f, 1.0f};
+    float surf[4] = {1.0f, 1.0f, 1.0f, 1.0f};
+
+    memset(&lights, 0, sizeof(lights));
+    if (rw_engine.current_world)
+        rw_world_enumerate_lights(rw_engine.current_world, NULL, &lights);
+    rw_gl_set_lights(&lights, SHADER_IM3D_LIT);
+    rw_identity_raw(&world);
+    rw_gl_set_uniform_mat4(u->locations[U_WORLD], &world);
+    rw_gl_set_uniform_vec4(u->locations[U_MAT_COLOR], one);
+    rw_gl_set_uniform_vec4(u->locations[U_SURF_PROPS], surf);
+}
+
 /* ---- im2d ---- */
 
 void
@@ -11,46 +76,21 @@ rw_im2d_render_primitive(RwPrimitiveType type, RwIm2DVertex *verts, int num_vert
 {
     unsigned int vbo, prog;
     RwShaderUniforms *u;
-    RwCamera *cam;
-    float xform[16];
+    RwRawMatrix xform;
     GLenum gl_type;
+    int min_count;
 
-    if (!verts || num_verts < 2) return;
-
-    switch (type) {
-    case RW_PRIM_TRILIST:  gl_type = GL_TRIANGLES;  break;
-    case RW_PRIM_TRISTRIP: gl_type = GL_TRIANGLE_STRIP; break;
-    case RW_PRIM_TRIFAN:   gl_type = GL_TRIANGLE_FAN; break;
-    case RW_PRIM_LINELIST: gl_type = GL_LINES;       break;
-    case RW_PRIM_POLYLINE: gl_type = GL_LINE_STRIP;  break;
-    case RW_PRIM_POINTLIST: gl_type = GL_POINTS;     break;
-    default: return;
-    }
+    if (!rw_prim_to_gl(type, &gl_type, &min_count) || !verts || num_verts < min_count) return;
 
     prog = rw_gl_get_program(SHADER_IM2D);
     if (!prog) return;
     u = rw_gl_get_uniforms(SHADER_IM2D);
 
-    cam = rw_engine.current_camera;
-    if (cam) {
-        int w = cam->frame_buffer ? cam->frame_buffer->width : 0;
-        int h = cam->frame_buffer ? cam->frame_buffer->height : 0;
-        float sx = 2.0f / (float)w;
-        float sy = -2.0f / (float)h;
-        memset(xform, 0, sizeof(xform));
-        xform[0]  = sx;
-        xform[5]  = sy;
-        xform[10] = 1.0f;
-        xform[12] = -1.0f;
-        xform[13] = 1.0f;
-        xform[15] = 1.0f;
-    } else {
-        memset(xform, 0, sizeof(xform));
-        xform[0] = xform[5] = xform[10] = xform[15] = 1.0f;
-    }
-
+    rw_im2d_xform(&xform);
     rw_gl_state_use_program(prog);
-    rw_gl_set_uniform_vec4(u->locations[U_XFORM], xform);
+    rw_gl_set_uniform_mat4(u->locations[U_XFORM], &xform);
+    rw_gl_state_bind_texture(0, rw_gl_get_white_texture());
+    rw_gl_state_flush_render();
 
     glGenBuffers(1, &vbo);
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
@@ -78,45 +118,22 @@ rw_im2d_render_indexed(RwPrimitiveType type, RwIm2DVertex *verts, int num_verts,
 {
     unsigned int vbo, ibo, prog;
     RwShaderUniforms *u;
-    RwCamera *cam;
-    float xform[16];
+    RwRawMatrix xform;
     GLenum gl_type;
+    int min_count;
 
-    if (!verts || num_verts < 2 || !indices || num_indices < 3) return;
-
-    switch (type) {
-    case RW_PRIM_TRILIST:  gl_type = GL_TRIANGLES;  break;
-    case RW_PRIM_TRISTRIP: gl_type = GL_TRIANGLE_STRIP; break;
-    case RW_PRIM_TRIFAN:   gl_type = GL_TRIANGLE_FAN; break;
-    case RW_PRIM_LINELIST: gl_type = GL_LINES;       break;
-    case RW_PRIM_POLYLINE: gl_type = GL_LINE_STRIP;  break;
-    default: return;
-    }
+    if (!rw_prim_to_gl(type, &gl_type, &min_count) || !verts || !indices ||
+        num_verts <= 0 || num_indices < min_count) return;
 
     prog = rw_gl_get_program(SHADER_IM2D);
     if (!prog) return;
     u = rw_gl_get_uniforms(SHADER_IM2D);
 
-    cam = rw_engine.current_camera;
-    if (cam) {
-        int w = cam->frame_buffer ? cam->frame_buffer->width : 0;
-        int h = cam->frame_buffer ? cam->frame_buffer->height : 0;
-        float sx = 2.0f / (float)w;
-        float sy = -2.0f / (float)h;
-        memset(xform, 0, sizeof(xform));
-        xform[0]  = sx;
-        xform[5]  = sy;
-        xform[10] = 1.0f;
-        xform[12] = -1.0f;
-        xform[13] = 1.0f;
-        xform[15] = 1.0f;
-    } else {
-        memset(xform, 0, sizeof(xform));
-        xform[0] = xform[5] = xform[10] = xform[15] = 1.0f;
-    }
-
+    rw_im2d_xform(&xform);
     rw_gl_state_use_program(prog);
-    rw_gl_set_uniform_vec4(u->locations[U_XFORM], xform);
+    rw_gl_set_uniform_mat4(u->locations[U_XFORM], &xform);
+    rw_gl_state_bind_texture(0, rw_gl_get_white_texture());
+    rw_gl_state_flush_render();
 
     glGenBuffers(1, &vbo);
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
@@ -178,19 +195,10 @@ rw_im3d_render_primitive(RwPrimitiveType type)
     RwShaderUniforms *u;
     RwCamera *cam;
     GLenum gl_type;
-    int stride, has_normal;
+    int stride, has_normal, min_count;
 
-    if (!im3d_verts || im3d_num_verts < 2) return;
-
-    switch (type) {
-    case RW_PRIM_TRILIST:  gl_type = GL_TRIANGLES;  break;
-    case RW_PRIM_TRISTRIP: gl_type = GL_TRIANGLE_STRIP; break;
-    case RW_PRIM_TRIFAN:   gl_type = GL_TRIANGLE_FAN; break;
-    case RW_PRIM_LINELIST: gl_type = GL_LINES;       break;
-    case RW_PRIM_POLYLINE: gl_type = GL_LINE_STRIP;  break;
-    case RW_PRIM_POINTLIST: gl_type = GL_POINTS;     break;
-    default: return;
-    }
+    if (!rw_prim_to_gl(type, &gl_type, &min_count) || !im3d_verts ||
+        im3d_num_verts < min_count) return;
 
     has_normal = (im3d_flags & RW_IM3D_LIGHTING) && (im3d_flags & RW_IM3D_VERTEXXYZ);
     prog = rw_gl_get_program(has_normal ? SHADER_IM3D_LIT : SHADER_IM3D);
@@ -198,13 +206,13 @@ rw_im3d_render_primitive(RwPrimitiveType type)
     u = rw_gl_get_uniforms(has_normal ? SHADER_IM3D_LIT : SHADER_IM3D);
 
     cam = rw_engine.current_camera;
-    if (cam) {
-        RwMatrix *ltm = rw_frame_get_ltm(cam->frame);
-        if (ltm && has_normal)
-            rw_gl_upload_matrix(u->locations[U_WORLD], ltm);
-    }
+    if (cam)
+        rw_gl_set_camera(cam);
 
     rw_gl_state_use_program(prog);
+    if (has_normal)
+        rw_im3d_lit_state(u);
+    rw_gl_state_flush_render();
 
     stride = sizeof(RwIm3DVertex);
     glGenBuffers(1, &vbo);
@@ -237,18 +245,10 @@ rw_im3d_render_indexed(RwPrimitiveType type, uint16_t *indices, int num_indices)
     RwShaderUniforms *u;
     RwCamera *cam;
     GLenum gl_type;
-    int stride, has_normal;
+    int stride, has_normal, min_count;
 
-    if (!im3d_verts || im3d_num_verts < 2 || !indices || num_indices < 3) return;
-
-    switch (type) {
-    case RW_PRIM_TRILIST:  gl_type = GL_TRIANGLES;  break;
-    case RW_PRIM_TRISTRIP: gl_type = GL_TRIANGLE_STRIP; break;
-    case RW_PRIM_TRIFAN:   gl_type = GL_TRIANGLE_FAN; break;
-    case RW_PRIM_LINELIST: gl_type = GL_LINES;       break;
-    case RW_PRIM_POLYLINE: gl_type = GL_LINE_STRIP;  break;
-    default: return;
-    }
+    if (!rw_prim_to_gl(type, &gl_type, &min_count) || !im3d_verts || !indices ||
+        im3d_num_verts <= 0 || num_indices < min_count) return;
 
     has_normal = (im3d_flags & RW_IM3D_LIGHTING) && (im3d_flags & RW_IM3D_VERTEXXYZ);
     prog = rw_gl_get_program(has_normal ? SHADER_IM3D_LIT : SHADER_IM3D);
@@ -256,13 +256,13 @@ rw_im3d_render_indexed(RwPrimitiveType type, uint16_t *indices, int num_indices)
     u = rw_gl_get_uniforms(has_normal ? SHADER_IM3D_LIT : SHADER_IM3D);
 
     cam = rw_engine.current_camera;
-    if (cam) {
-        RwMatrix *ltm = rw_frame_get_ltm(cam->frame);
-        if (ltm && has_normal)
-            rw_gl_upload_matrix(u->locations[U_WORLD], ltm);
-    }
+    if (cam)
+        rw_gl_set_camera(cam);
 
     rw_gl_state_use_program(prog);
+    if (has_normal)
+        rw_im3d_lit_state(u);
+    rw_gl_state_flush_render();
 
     stride = sizeof(RwIm3DVertex);
     glGenBuffers(1, &vbo);
