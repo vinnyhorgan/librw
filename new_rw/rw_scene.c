@@ -31,6 +31,50 @@ rw_camera_update_projection(RwCamera *c)
     c->dev_proj.pos.z = -(c->near_plane * c->far_plane) / (c->far_plane - c->near_plane);
 }
 
+static void
+rw_camera_set_frustum_plane(RwCamera *c, int index, RwV3d normal, RwV3d point)
+{
+    normal = rw_v3d_normalize(normal);
+    c->frustum[index].normal = normal;
+    c->frustum[index].dist = -rw_v3d_dot(normal, point);
+    c->frustum[index].cx = normal.x >= 0.0f;
+    c->frustum[index].cy = normal.y >= 0.0f;
+    c->frustum[index].cz = normal.z >= 0.0f;
+}
+
+static RwV3d
+rw_camera_vector_to_world(const RwMatrix *ltm, RwV3d v)
+{
+    RwV3d out;
+
+    out.x = v.x*ltm->right.x + v.y*ltm->up.x + v.z*ltm->at.x;
+    out.y = v.x*ltm->right.y + v.y*ltm->up.y + v.z*ltm->at.y;
+    out.z = v.x*ltm->right.z + v.y*ltm->up.z + v.z*ltm->at.z;
+    return out;
+}
+
+static void
+rw_camera_update_frustum(RwCamera *c)
+{
+    RwMatrix ltm;
+    RwV3d near_point, far_point;
+
+    if (c->frame)
+        ltm = *rw_frame_get_ltm(c->frame);
+    else
+        rw_matrix_set_identity(&ltm);
+
+    near_point = rw_v3d_add(ltm.pos, rw_v3d_scale(ltm.at, c->near_plane));
+    far_point = rw_v3d_add(ltm.pos, rw_v3d_scale(ltm.at, c->far_plane));
+
+    rw_camera_set_frustum_plane(c, 0, ltm.at, near_point);
+    rw_camera_set_frustum_plane(c, 1, rw_v3d_scale(ltm.at, -1.0f), far_point);
+    rw_camera_set_frustum_plane(c, 2, rw_camera_vector_to_world(&ltm, (RwV3d){1.0f, 0.0f, c->view_window.x}), ltm.pos);
+    rw_camera_set_frustum_plane(c, 3, rw_camera_vector_to_world(&ltm, (RwV3d){-1.0f, 0.0f, c->view_window.x}), ltm.pos);
+    rw_camera_set_frustum_plane(c, 4, rw_camera_vector_to_world(&ltm, (RwV3d){0.0f, 1.0f, c->view_window.y}), ltm.pos);
+    rw_camera_set_frustum_plane(c, 5, rw_camera_vector_to_world(&ltm, (RwV3d){0.0f, -1.0f, c->view_window.y}), ltm.pos);
+}
+
 RwAtomic *
 rw_atomic_create(void)
 {
@@ -395,6 +439,7 @@ rw_camera_create(void)
     rw_matrix_set_identity(&c->view_matrix);
     rw_matrix_to_raw(&c->dev_view, &c->view_matrix);
     rw_camera_update_projection(c);
+    rw_camera_update_frustum(c);
     return c;
 }
 
@@ -427,6 +472,7 @@ rw_camera_begin_update(RwCamera *c)
         rw_matrix_set_identity(&c->view_matrix);
     rw_matrix_to_raw(&c->dev_view, &c->view_matrix);
     rw_camera_update_projection(c);
+    rw_camera_update_frustum(c);
     rw_engine.current_camera = c;
 }
 
@@ -479,19 +525,16 @@ rw_camera_set_near_far(RwCamera *c, float near, float far)
 int
 rw_camera_frustum_test_sphere(RwCamera *c, const RwSphere *s)
 {
-    RwSphere view;
+    int i;
 
     if (!c || !s)
         return 0;
-    rw_scene_sphere_transform(&view, s, &c->view_matrix);
-    if (view.center.z + view.radius < c->near_plane)
-        return 0;
-    if (view.center.z - view.radius > c->far_plane)
-        return 0;
-    if (fabsf(view.center.x) - view.radius > view.center.z * c->view_window.x)
-        return 0;
-    if (fabsf(view.center.y) - view.radius > view.center.z * c->view_window.y)
-        return 0;
+
+    for (i = 0; i < 6; i++) {
+        float d = rw_v3d_dot(c->frustum[i].normal, s->center) + c->frustum[i].dist;
+        if (d < -s->radius)
+            return 0;
+    }
     return 1;
 }
 

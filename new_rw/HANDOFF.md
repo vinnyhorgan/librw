@@ -144,16 +144,16 @@ Important behavior:
 - Atomics retain assigned geometry with `ref_count` and release it on replacement/destruction.
 - World render iterates clumps, clumps iterate atomics, and atomics invoke render callbacks before pipeline render callbacks.
 - World light enumeration accumulates ambient lights, collects directional lights, and includes point/spot lights whose radius intersects an atomic bounding sphere.
-- Camera begin update computes view matrix by inverting the attached frame LTM and updates a GLES-style projection raw matrix.
-- Frustum sphere testing currently uses view-space near/far and view-window side checks; explicit stored frustum planes remain pending.
+- Camera begin update computes view matrix by inverting the attached frame LTM, updates a GLES-style projection raw matrix, and extracts six normalized frustum planes in world space.
+- Frustum sphere testing uses the stored camera planes and supports moved camera frames.
 - `RwLight` now has an `in_clump` link so clump-local light lists do not conflict with world light lists.
 
 Verified commands:
 - `gcc -std=c99 -Wall -Wextra -Werror -I. tests/test_scene.c rw_engine.c rw_frame.c rw_material.c rw_raster.c rw_geometry.c rw_scene.c -lm -o test_scene && ./test_scene`
 
-## What's Next: Continue Phase 5 / Phase 4 GL Prerequisites
+## What's Next: Phase 4 GL Prerequisites
 
-Next useful progress is either explicit camera frustum plane extraction or the GL-facing Phase 4/3 work: `rw_pipeline.c` instance-data scaffolding plus `rw_gl.c` state/shader/device hooks. Full triangle rendering still requires GL backend state/shaders and pipeline render paths.
+Next useful progress is GL-facing Phase 4/3 work: `rw_pipeline.c` instance-data scaffolding plus `rw_gl.c` state/shader/device hooks. Full triangle rendering still requires GL backend state/shaders and pipeline render paths.
 
 ## Build Notes
 - `gcc -std=c99 -Wall -Wextra -Werror`

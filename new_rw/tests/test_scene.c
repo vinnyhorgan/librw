@@ -1,6 +1,13 @@
 #include "../rw.h"
 
 #include <assert.h>
+#include <math.h>
+
+static int
+near(float a, float b)
+{
+    return fabsf(a - b) < 0.0001f;
+}
 
 static int render_count;
 static int callback_count;
@@ -104,18 +111,35 @@ static void
 test_camera_frustum(void)
 {
     RwCamera *camera = rw_camera_create();
+    RwFrame *frame = rw_frame_create();
     RwSphere visible = {{0, 0, 5}, 1.0f};
     RwSphere outside = {{10, 0, 5}, 1.0f};
     RwSphere behind = {{0, 0, -1}, 0.25f};
+    RwSphere moved_visible = {{0, 0, 15}, 1.0f};
+    RwSphere moved_behind = {{0, 0, 5}, 1.0f};
 
     assert(camera);
+    assert(frame);
     rw_camera_set_near_far(camera, 1.0f, 20.0f);
     rw_camera_set_view_window(camera, 1.0f);
     rw_camera_begin_update(camera);
     assert(rw_engine.current_camera == camera);
+    assert(near(camera->frustum[0].normal.z, 1.0f));
+    assert(near(camera->frustum[0].dist, -1.0f));
+    assert(near(camera->frustum[1].normal.z, -1.0f));
+    assert(near(camera->frustum[1].dist, 20.0f));
     assert(rw_camera_frustum_test_sphere(camera, &visible));
     assert(!rw_camera_frustum_test_sphere(camera, &outside));
     assert(!rw_camera_frustum_test_sphere(camera, &behind));
+
+    rw_frame_translate(frame, (RwV3d){0, 0, 10}, RW_COMBINE_REPLACE);
+    rw_camera_set_frame(camera, frame);
+    rw_camera_begin_update(camera);
+    assert(near(camera->frustum[0].dist, -11.0f));
+    assert(rw_camera_frustum_test_sphere(camera, &moved_visible));
+    assert(!rw_camera_frustum_test_sphere(camera, &moved_behind));
+
+    rw_frame_destroy(frame);
     rw_camera_destroy(camera);
 }
 
