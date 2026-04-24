@@ -139,6 +139,13 @@ rw_atomic_set_render_cb(RwAtomic *a, void (*cb)(RwAtomic *))
 }
 
 void
+rw_atomic_set_hanim_hierarchy(RwAtomic *a, RwHAnimHier *h)
+{
+    if (a)
+        a->hanim = h;
+}
+
+void
 rw_atomic_render(RwAtomic *a)
 {
     if (!a)

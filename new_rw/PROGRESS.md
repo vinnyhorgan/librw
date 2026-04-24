@@ -1,6 +1,6 @@
 # rw — Implementation Progress
 
-## Status: All core phases complete — GL render test added, all tests pass
+## Status: All core phases complete — skin GL upload covered, all tests pass
 
 ## Phase Overview
 
@@ -132,7 +132,7 @@
 ## Phase 5: Scene Graph
 
 ### rw_scene.c
-- [x] rw_atomic_create / destroy / set_geometry / set_frame / set_pipeline / set_render_cb / render
+- [x] rw_atomic_create / destroy / set_geometry / set_frame / set_pipeline / set_render_cb / set_hanim_hierarchy / render
 - [x] rw_clump_create / destroy / get_frame / set_frame / add_atomic / remove_atomic / add_light / render
 - [x] rw_world_create / destroy / add_clump / remove_clump / add_light / remove_light / render / enumerate_lights
 - [x] rw_camera_create / destroy / set_frame / begin_update / end_update / clear / set_fov / set_view_window / set_near_far / frustum_test_sphere
@@ -172,6 +172,7 @@
 - [x] rw_hanim_update_matrices (hierarchy traversal, PUSH/POP)
 - [x] GL: skin vertex shader permutation (skin_dir_point)
 - [x] GL: bone matrix upload (global × inverse_bind)
+- [x] Pipeline: skinned atomics upload HAnim bone matrices before draw
 - [x] GL: skinned vertex attrib setup (weights + indices)
 
 ### Tests
@@ -202,3 +203,4 @@
 | 2026-04-24 | Fixes | Fixed duplicate `#version 100` in shader sources (build_shader prepends it), fixed `u_fog_data` precision mismatch between vertex/fragment shaders, fixed `rw_camera_clear` stub → glClear, fixed `rw_skin_set_pipeline` no-op → actual skin pipeline, fixed test_render.c double-free of raster |
 | 2026-04-24 | 5/6/7 | Added `rw_render.c` (~260 lines) with im2d/im3d immediate mode; added `tests/test_render.c` GL render test with GLFW offscreen context; wired rw_camera_clear to glClear; wired rw_skin_set_pipeline; all tests pass |
 | 2026-04-24 | Leak Fixes | Freed GL instance VBO/IBO data from `rw_geometry_destroy`; freed raster GL textures from `rw_raster_destroy` via a cache-aware texture delete helper; strict `make test` passes |
+| 2026-04-24 | Skin GL | Added atomic HAnim hierarchy attachment and wired `default_render()` to upload skin bone matrices; extended `test_render.c` to render both default and skinned triangles with center-pixel verification; strict `make test` passes |

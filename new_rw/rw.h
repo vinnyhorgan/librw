@@ -285,6 +285,7 @@ struct RwAtomic {
     RwLink in_clump;
     RwObjPipeline *pipeline;
     void (*render_cb)(RwAtomic *atomic);
+    RwHAnimHier *hanim;
     RwWorld *world;
 };
 
@@ -963,6 +964,7 @@ void      rw_atomic_set_geometry(RwAtomic *a, RwGeometry *geo);
 void      rw_atomic_set_frame(RwAtomic *a, RwFrame *f);
 void      rw_atomic_set_pipeline(RwAtomic *a, RwObjPipeline *p);
 void      rw_atomic_set_render_cb(RwAtomic *a, void (*cb)(RwAtomic *));
+void      rw_atomic_set_hanim_hierarchy(RwAtomic *a, RwHAnimHier *h);
 void      rw_atomic_render(RwAtomic *a);
 
 RwClump  *rw_clump_create(void);

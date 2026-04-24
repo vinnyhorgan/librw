@@ -29,6 +29,21 @@ test_skin_data(void)
 }
 
 static void
+test_atomic_hanim_setter(void)
+{
+    RwAtomic *atomic = rw_atomic_create();
+    RwHAnimNodeInfo node = {0, 0, 0, NULL};
+    RwHAnimHier *h = rw_hanim_create(1, &node);
+
+    assert(atomic && h);
+    rw_atomic_set_hanim_hierarchy(atomic, h);
+    assert(atomic->hanim == h);
+
+    rw_atomic_destroy(atomic);
+    rw_hanim_destroy(h);
+}
+
+static void
 test_hanim_interpolate_and_update(void)
 {
     RwHAnimNodeInfo nodes[2] = {
@@ -74,6 +89,7 @@ main(void)
 {
     assert(rw_engine_init(NULL));
     test_skin_data();
+    test_atomic_hanim_setter();
     test_hanim_interpolate_and_update();
     rw_engine_term();
     return 0;

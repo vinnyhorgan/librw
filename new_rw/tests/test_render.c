@@ -8,7 +8,7 @@
 #include <string.h>
 
 static void
-test_render_triangle(void)
+test_render_triangle(int skinned)
 {
     GLFWwindow *win;
     RwGeometry *geo;
@@ -19,6 +19,8 @@ test_render_triangle(void)
     RwFrame *cam_frame;
     RwFrame *atomic_frame;
     RwMaterial *mat;
+    RwSkin *skin = NULL;
+    RwHAnimHier *hier = NULL;
     int w = 256, h = 256;
     uint8_t pixels[4];
     GLenum err;
@@ -52,12 +54,15 @@ test_render_triangle(void)
     atomic_frame = rw_frame_create();
     assert(atomic_frame);
 
-    geo = rw_geometry_create(3, 1, RW_GEO_POSITIONS | RW_GEO_PRELIT);
+    geo = rw_geometry_create(3, 1, RW_GEO_POSITIONS | RW_GEO_PRELIT | RW_GEO_NORMALS);
     assert(geo);
     rw_geometry_lock(geo, RW_LOCK_ALL);
     geo->morph_target.vertices[0] = (RwV3d){ 0.0f,  0.2f, 1.0f};
     geo->morph_target.vertices[1] = (RwV3d){-0.2f, -0.2f, 1.0f};
     geo->morph_target.vertices[2] = (RwV3d){ 0.2f, -0.2f, 1.0f};
+    geo->morph_target.normals[0] = (RwV3d){0.0f, 0.0f, -1.0f};
+    geo->morph_target.normals[1] = (RwV3d){0.0f, 0.0f, -1.0f};
+    geo->morph_target.normals[2] = (RwV3d){0.0f, 0.0f, -1.0f};
     geo->colors[0] = (RwRGBA){255, 0, 0, 255};
     geo->colors[1] = (RwRGBA){0, 255, 0, 255};
     geo->colors[2] = (RwRGBA){0, 0, 255, 255};
@@ -67,6 +72,24 @@ test_render_triangle(void)
     geo->triangles[0].mat_id = 0;
     rw_geometry_unlock(geo);
     assert(rw_geometry_build_meshes(geo));
+
+    if (skinned) {
+        RwHAnimNodeInfo node = {0, 0, 0, NULL};
+        int i;
+
+        skin = rw_skin_create(1, 3, 4);
+        assert(skin);
+        for (i = 0; i < 3; i++)
+            skin->weights[i * 4] = 1.0f;
+        for (i = 0; i < 16; i++)
+            skin->inverse_matrices[i] = (i % 5) == 0 ? 1.0f : 0.0f;
+        geo->skin = skin;
+
+        hier = rw_hanim_create(1, &node);
+        assert(hier);
+        rw_hanim_attach(hier, atomic_frame);
+        rw_hanim_update_matrices(hier);
+    }
 
     mat = rw_material_create();
     assert(mat);
@@ -91,7 +114,12 @@ test_render_triangle(void)
     rw_geometry_destroy(geo);
     rw_atomic_set_frame(atomic, atomic_frame);
 
-    rw_atomic_set_pipeline(atomic, rw_gl_default_pipeline());
+    if (skinned) {
+        rw_atomic_set_hanim_hierarchy(atomic, hier);
+        rw_skin_set_pipeline(atomic);
+    } else {
+        rw_atomic_set_pipeline(atomic, rw_gl_default_pipeline());
+    }
     rw_clump_add_atomic(clump, atomic);
     rw_world_add_clump(world, clump);
 
@@ -112,6 +140,8 @@ test_render_triangle(void)
 
     rw_clump_destroy(clump);
     rw_frame_destroy(atomic_frame);
+    rw_hanim_destroy(hier);
+    rw_skin_destroy(skin);
     rw_world_destroy(world);
     rw_camera_destroy(camera);
     rw_frame_destroy(cam_frame);
@@ -121,7 +151,7 @@ test_render_triangle(void)
     rw_engine_term();
 
     glfwDestroyWindow(win);
-    fprintf(stderr, "test_render_triangle: PASS\n");
+    fprintf(stderr, "test_render_triangle(%s): PASS\n", skinned ? "skinned" : "default");
 }
 
 int
@@ -133,7 +163,8 @@ main(void)
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
     glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
 
-    test_render_triangle();
+    test_render_triangle(0);
+    test_render_triangle(1);
 
     glfwTerminate();
     return 0;

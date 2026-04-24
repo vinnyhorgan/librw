@@ -1,28 +1,36 @@
-# Handoff Prompt For Next LLM
+# Handoff Prompt For Next Session
 
-You are continuing work in `/home/dvh/Downloads/librw/new_rw` on `rw`, a small C99 RenderWare-like rendering API for a fantasy console. The target backend is OpenGL ES 2.0 with no extensions. The public API is `rw_` prefixed snake_case. Everything outside `new_rw/` is the original C++ librw codebase and is reference only: study algorithms there when useful, but do not copy code.
+You are continuing work in `/home/dvh/Downloads/librw/new_rw` on `rw`, a compact C99 RenderWare-like rendering API for a fantasy console. The backend target is OpenGL ES 2.0 with no extensions. The public API uses `rw_` prefixed snake_case.
 
-Start by reading:
-- `new_rw/PLAN.md` for the architecture/spec and intended implementation order.
-- `new_rw/PROGRESS.md` for current status and changelog.
-- `new_rw/Makefile` for the strict build/test entry point.
+Everything outside `new_rw/` is the original C++ librw codebase and is reference only. Study algorithms there when useful, but do not copy code.
 
-Then inspect only the source files needed for the task you choose.
+## Start Here
 
-## Current Verified State
+1. Read `new_rw/PLAN.md` for the architecture/spec and intended implementation order.
+2. Read `new_rw/PROGRESS.md` for current implementation status and changelog.
+3. Read `new_rw/Makefile` for the strict build/test entry point.
+4. Inspect only the source files needed for the task you choose.
+5. Before editing, check the working tree and avoid touching unrelated user/agent changes.
 
-The project has a complete CPU-side runtime, GL backend, default/skin pipelines, and immediate mode infrastructure. All current tests pass, including a GLFW offscreen GLES2 render test with center-pixel verification enabled.
+## Verified State
+
+The runtime has complete CPU-side core systems, a GLES2 backend, default and skin pipelines, and immediate-mode infrastructure. The current test suite passes with strict C99 flags, including a GLFW offscreen GLES2 render test that verifies a center pixel for both default and skinned triangle rendering.
 
 Verify with:
+
 ```bash
 cd /home/dvh/Downloads/librw/new_rw
 make test
 ```
 
-The last verified run passed all tests with strict C99 flags:
-`cc -I. -Ivendor/glad/include -Ivendor/glfw/include -std=c99 -Wall -Wextra -Werror -pedantic -O2 ... -lm -lglfw -ldl`.
+The last verified test run used:
+
+```text
+cc -I. -Ivendor/glad/include -Ivendor/glfw/include -std=c99 -Wall -Wextra -Werror -pedantic -O2 ... -lm -lglfw -ldl
+```
 
 Current tests:
+
 - `tests/test_math.c`
 - `tests/test_frame.c`
 - `tests/test_material.c`
@@ -31,7 +39,7 @@ Current tests:
 - `tests/test_skin.c`
 - `tests/test_render.c`
 
-## Implemented Source Files
+## Implemented Files
 
 - `rw.h` - public types, structs, enums, APIs, inline math, intrusive lists.
 - `rw_engine.c` - engine lifecycle, render-state array, allocator wrappers, GL backend lifecycle wiring.
@@ -39,12 +47,24 @@ Current tests:
 - `rw_material.c` - materials, textures, texture dictionaries.
 - `rw_raster.c` - CPU rasters/images, `stb_image` bridge, CPU image-to-raster copy, GL texture cleanup on destroy.
 - `rw_geometry.c` - geometry allocation, mesh grouping, bounding spheres, GL instance cleanup on destroy.
-- `rw_scene.c` - atomics, clumps, worlds, cameras, lights, light enumeration, CPU render dispatch, `rw_camera_clear` wired to `glClear`.
-- `rw_skin.c` - skin data allocation and CPU HAnim attach/interpolate/update, `rw_skin_set_pipeline` wired to skin pipeline.
+- `rw_scene.c` - atomics, clumps, worlds, cameras, lights, light enumeration, CPU render dispatch, `rw_camera_clear` wired to `glClear`, atomic HAnim hierarchy attachment.
+- `rw_skin.c` - skin data allocation, CPU HAnim attach/interpolate/update, `rw_skin_set_pipeline` wired to the skin pipeline.
 - `rw_gl.c` - GLES2 state cache, shader compile/link, 8 shader permutations, device init/shutdown, texture upload, cache-aware texture deletion, lighting upload, skin matrix upload, camera matrix upload.
-- `rw_pipeline.c` - default instance callback and render callback.
+- `rw_pipeline.c` - default instance callback and render callback for default and skinned geometry.
 - `rw_render.c` - im2d/im3d immediate mode with dynamic VBOs.
 - `rw_gl_internal.h` - shared internal GL backend declarations.
+
+## Recent Completed Work
+
+Skin rendering is now wired through the default render path.
+
+- `RwAtomic` has a borrowed `RwHAnimHier *hanim` pointer.
+- `rw_atomic_set_hanim_hierarchy(RwAtomic *a, RwHAnimHier *h)` attaches the hierarchy to an atomic.
+- `default_render()` calls `rw_gl_upload_skin_matrices(a->hanim, geo->skin, shader_idx)` when geometry is skinned and a hierarchy is attached.
+- `tests/test_skin.c` covers the HAnim setter.
+- `tests/test_render.c` renders both default and skinned triangles and checks the center pixel.
+
+Do not redo this task unless a regression is found.
 
 ## GL Backend Notes
 
@@ -60,10 +80,9 @@ Current tests:
 
 - `default_instance()` computes an interleaved vertex stride from geometry flags, packs positions/normals/texcoords/colors/skin weights/bone indices into one VBO, packs per-mesh indices into one IBO, and stores `RwGlMeshData` in `geometry->gl_data`.
 - Re-instancing calls `rw_gl_destroy_instance_data(geo)` before creating new GL buffers.
-- `rw_geometry_destroy()` now also calls `rw_gl_destroy_instance_data(geo)` so VBO/IBO resources are not leaked.
+- `rw_geometry_destroy()` calls `rw_gl_destroy_instance_data(geo)` so VBO/IBO resources are not leaked.
 - Bone indices are masked to `0x3F` while packing to stay within the 64-matrix shader limit.
-- `default_render()` uploads the world matrix, enumerates lights, selects a shader, flushes render state, configures vertex input, iterates meshes, uploads material uniforms, binds textures, and issues `glDrawElements`.
-- `default_render()` currently does not upload skin bone matrices before drawing skinned geometry. This is the highest-priority functional gap.
+- `default_render()` uploads the world matrix, enumerates lights, selects a shader, uploads skin bone matrices when available, flushes render state, configures vertex input, iterates meshes, uploads material uniforms, binds textures, and issues `glDrawElements`.
 
 ## Important Invariants
 
@@ -80,37 +99,39 @@ Current tests:
 - Current mesh building supports triangle lists only; `RW_GEO_TRISTRIP` intentionally returns failure.
 - `RwClump` owns its current frame. `rw_clump_set_frame` destroys the old owned frame and takes ownership of the new frame.
 - `RwHAnimHier.anim_data` is borrowed external storage; `rw_hanim_destroy()` does not free it.
+- `RwAtomic.hanim` is also borrowed; `rw_atomic_destroy()` does not destroy it.
 
 ## Best Next Tasks
 
-1. **Wire skin bone upload in `default_render()`**
-   The skin shader path exists and `rw_gl_upload_skin_matrices(RwHAnimHier *hier, RwSkin *skin, int shader_idx)` exists, but `default_render()` never calls it. Make a minimal API/storage choice so an `RwAtomic` can reference its `RwHAnimHier` (for example a dedicated `RwHAnimHier *hanim` field plus setter, or a generic `void *user_data` only if that is clearly better). When `data->has_skin` is true and the hierarchy is available, call `rw_gl_upload_skin_matrices()` after shader selection/use and before the mesh draw loop. Add focused coverage if practical; otherwise preserve existing tests and note the residual test gap.
+1. **Texture upload on raster creation/copy**
+   `rw_raster_from_image()` currently performs CPU copy only. Texture upload happens lazily on first render. If adding eager upload, only do it when a GL context/backend is available; CPU-only tests must not require GL.
 
-2. **Texture upload on raster creation/copy**
-   `rw_raster_from_image()` currently does CPU copy only. Texture upload happens lazily on first render. Consider eager upload only if a GL context/backend is available; avoid making CPU-only tests require a GL context.
+2. **Auto-mipmapping**
+   Add GLES2 `glGenerateMipmap` support for mipmapped texture filters. Avoid generating mipmaps for invalid dimensions or unavailable texture data.
 
-3. **Auto-mipmapping**
-   Add `glGenerateMipmap` support for mipmapped texture filters. Keep GLES2/no-extension constraints in mind and avoid generating mipmaps for invalid dimensions or unavailable texture data.
+3. **Add `tests/test_im2d.c`**
+   Cover 2D overlay rendering with the immediate mode API. Use GLFW only in tests, not runtime code.
 
-4. **Add `tests/test_im2d.c`**
-   Cover 2D overlay rendering with the immediate mode API.
+4. **Add `tests/test_gta.c` mini demo**
+   Exercise a small GTA-like scene: ground plane, building boxes, animated/skinned character, follow camera, fog, and HUD overlay.
 
-5. **Add `tests/test_gta.c` mini demo**
-   Exercise a tiny GTA-like scene: ground plane, building boxes, animated character, follow camera, fog, and HUD overlay.
+5. **Polish/review pass**
+   Check for leaks, GL errors, render-state inconsistencies, line-count drift, and missing coverage around texture filters/fog/alpha.
+
+## Current Known Gaps
+
+- `rw_raster_from_image()` does CPU copy only; GL upload happens lazily in the render loop.
+- No auto-mipmapping yet.
+- No im2d render test yet.
+- No GTA-like integration demo yet.
+- Final line count target is approximate and currently over the original estimate.
 
 ## Do Not Do
 
 - Do not copy C++ librw code verbatim.
 - Do not introduce C++ or non-C99 constructs.
 - Do not make the core runtime depend on GLFW.
+- Do not make CPU-only tests require a GL context.
 - Do not rewrite broad compatibility layers unless a concrete shipped data/API need appears.
 - Do not audit or rewrite `vendor/glfw`, `vendor/glad`, or `vendor/stb` unless the task is specifically about third-party code.
 - Do not undo unrelated user or agent changes in the worktree.
-
-## Current Known Gaps
-
-- Skin bone matrices are not uploaded by `default_render()` yet.
-- `rw_raster_from_image()` does CPU copy only; GL upload happens lazily in the render loop.
-- No auto-mipmapping yet.
-- No im2d render test yet.
-- No GTA-like integration demo yet.

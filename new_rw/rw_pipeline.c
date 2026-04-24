@@ -234,6 +234,9 @@ default_render(RwAtomic *a)
 
     rw_gl_set_lights(&lights, shader_idx);
 
+    if (data->has_skin && a->hanim)
+        rw_gl_upload_skin_matrices(a->hanim, geo->skin, shader_idx);
+
     {
         float fog_data[4] = {0,0,0,0};
         float fog_color[4] = {0,0,0,0};
