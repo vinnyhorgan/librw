@@ -126,6 +126,26 @@ test_render_triangle(int skinned)
     geo->triangles[0].v[2] = 2;
     geo->triangles[0].mat_id = 0;
     rw_geometry_unlock(geo);
+
+    mat = rw_material_create();
+    assert(mat);
+    {
+        RwRaster *white_raster = rw_raster_create(1, 1, 32, 0);
+        RwTexture *white_tex;
+        uint8_t *pixels;
+        assert(white_raster);
+        pixels = rw_raster_lock(white_raster);
+        pixels[0] = 255; pixels[1] = 255; pixels[2] = 255; pixels[3] = 255;
+        rw_raster_unlock(white_raster);
+        white_tex = rw_texture_create(white_raster);
+        assert(white_tex);
+        rw_material_set_texture(mat, white_tex);
+        rw_texture_destroy(white_tex);
+        /* raster is owned by texture; texture destroy will free it */
+    }
+    rw_material_set_color(mat, (RwRGBA){255, 255, 255, 255});
+    rw_material_destroy(geo->materials[0]);
+    geo->materials[0] = mat;
     assert(rw_geometry_build_meshes(geo));
 
     if (skinned) {
@@ -145,25 +165,6 @@ test_render_triangle(int skinned)
         rw_hanim_attach(hier, atomic_frame);
         rw_hanim_update_matrices(hier);
     }
-
-    mat = rw_material_create();
-    assert(mat);
-    {
-        RwRaster *white_raster = rw_raster_create(1, 1, 32, 0);
-        RwTexture *white_tex;
-        uint8_t *pixels;
-        assert(white_raster);
-        pixels = rw_raster_lock(white_raster);
-        pixels[0] = 255; pixels[1] = 255; pixels[2] = 255; pixels[3] = 255;
-        rw_raster_unlock(white_raster);
-        white_tex = rw_texture_create(white_raster);
-        assert(white_tex);
-        rw_material_set_texture(mat, white_tex);
-        rw_texture_destroy(white_tex);
-        /* raster is owned by texture; texture destroy will free it */
-    }
-    rw_material_set_color(mat, (RwRGBA){255, 255, 255, 255});
-    geo->materials[0] = mat;
 
     rw_atomic_set_geometry(atomic, geo);
     rw_geometry_destroy(geo);

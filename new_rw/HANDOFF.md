@@ -15,7 +15,7 @@ Everything outside `new_rw/` is the original C++ librw codebase and is reference
 
 ## Verified State
 
-The runtime has complete CPU-side core systems, a GLES2 backend, default and skin pipelines, immediate-mode infrastructure, GLES2 auto-mipmapping for valid power-of-two rasters, focused im2d/im3d render tests, and a GTA-like offscreen integration demo. The current suite passes with strict C99 flags and GLFW offscreen GLES2 render tests.
+The runtime has complete CPU-side core systems, a GLES2 backend, default and skin pipelines, immediate-mode infrastructure, trilist/tristrip mesh rendering, GLES2 auto-mipmapping for valid power-of-two rasters, focused clear/triangle/im2d/im3d render tests, and a GTA-like offscreen integration demo. The current suite passes with strict C99 flags and GLFW offscreen GLES2 render tests.
 
 Verify with:
 
@@ -23,7 +23,7 @@ Verify with:
 make test
 ```
 
-The last verified run, from `/home/dvh/Downloads/librw/new_rw`, passed all tests after adding `tests/test_gta.c`:
+The last verified run, from `/home/dvh/Downloads/librw/new_rw`, passed all tests after the review/polish pass:
 
 - `tests/test_math.c`
 - `tests/test_frame.c`
@@ -31,6 +31,8 @@ The last verified run, from `/home/dvh/Downloads/librw/new_rw`, passed all tests
 - `tests/test_geometry.c`
 - `tests/test_scene.c`
 - `tests/test_skin.c`
+- `tests/test_clear.c`
+- `tests/test_triangle.c`
 - `tests/test_render.c`
 - `tests/test_im2d.c`
 - `tests/test_im3d.c`
@@ -44,12 +46,7 @@ cc -I. -Ivendor/glad/include -Ivendor/glfw/include -std=c99 -Wall -Wextra -Werro
 
 ## Current Worktree Notes
 
-If this handoff is used before the current changes are committed, expect exactly these intentional changes:
-
-- `new_rw/tests/test_im3d.c` - new offscreen GLES2 im3d render test.
-- `new_rw/Makefile` - adds `im3d` to `GL_TEST_NAMES` so `make test` builds and runs it.
-- `new_rw/PROGRESS.md` - records the im3d render coverage and passing verification.
-- `new_rw/HANDOFF.md` - this updated next-session prompt.
+If this handoff is used before the current changes are committed, expect intentional review/polish changes around tristrip support, GL safety fixes, focused clear/triangle tests, and updated status docs.
 
 Current expected repository-level status before committing:
 
@@ -57,7 +54,13 @@ Current expected repository-level status before committing:
  M new_rw/HANDOFF.md
  M new_rw/Makefile
  M new_rw/PROGRESS.md
-?? new_rw/tests/test_im3d.c
+ M new_rw/rw_geometry.c
+ M new_rw/rw_gl.c
+ M new_rw/rw_pipeline.c
+ M new_rw/tests/test_geometry.c
+ M new_rw/tests/test_render.c
+?? new_rw/tests/test_clear.c
+?? new_rw/tests/test_triangle.c
 ```
 
 ## Current Implementation
@@ -67,11 +70,11 @@ Current expected repository-level status before committing:
 - `rw_frame.c` - frame hierarchy, dirty propagation, LTM sync.
 - `rw_material.c` - materials, textures, texture dictionaries.
 - `rw_raster.c` - CPU rasters/images, `stb_image` bridge, CPU image-to-raster copy, GL texture cleanup on destroy.
-- `rw_geometry.c` - geometry allocation, mesh grouping, bounding spheres, GL instance cleanup on destroy.
+- `rw_geometry.c` - geometry allocation, trilist material grouping, tristrip contiguous-strip mesh building, bounding spheres, GL instance cleanup on destroy.
 - `rw_scene.c` - atomics, clumps, worlds, cameras, lights, light enumeration, CPU render dispatch, `rw_camera_clear` wired to `glClear`, atomic HAnim hierarchy attachment.
 - `rw_skin.c` - skin data allocation, CPU HAnim attach/interpolate/update, `rw_skin_set_pipeline` wired to the skin pipeline.
 - `rw_gl.c` - GLES2 state cache, shader compile/link, 8 shader permutations, device init/shutdown, texture upload/mipmap generation, cache-aware texture deletion, lighting upload, skin matrix upload, camera matrix upload.
-- `rw_pipeline.c` - default instance callback and render callback for default and skinned geometry.
+- `rw_pipeline.c` - default instance callback and render callback for default and skinned geometry, including tristrip draw mode.
 - `rw_render.c` - im2d/im3d immediate mode with dynamic VBOs.
 - `rw_gl_internal.h` - shared internal GL backend declarations.
 
@@ -88,8 +91,10 @@ Do not redo these unless a regression is found.
 - `tests/test_render.c` covers mipmapped texture sampler setup: valid power-of-two rasters generate mipmaps, while NPOT rasters fall back to non-mip filters without GL errors.
 - `tests/test_im2d.c` renders primitive and indexed im2d quads in an offscreen GLFW GLES2 context and checks the center pixel.
 - `tests/test_im3d.c` renders unlit primitive and ambient-lit indexed im3d geometry in an offscreen GLFW GLES2 context and checks center pixels with no GL errors.
+- `tests/test_clear.c` validates `rw_camera_clear()` color/depth clear behavior with a pixel readback.
+- `tests/test_triangle.c` validates default-pipeline triangle rendering, alpha test discard, and alpha blending with pixel readbacks.
 - `tests/test_gta.c` renders a small GTA-like scene in an offscreen GLFW GLES2 context and checks scene/HUD pixels with no GL errors.
-- `Makefile` groups GLFW-dependent render tests through `GL_TEST_NAMES := render im2d im3d gta`.
+- `Makefile` groups GLFW-dependent render tests through `GL_TEST_NAMES := clear triangle render im2d im3d gta`.
 
 ## `tests/test_gta.c` Details
 
@@ -131,7 +136,8 @@ Ownership notes in the test:
 - `default_instance()` computes an interleaved vertex stride from geometry flags, packs positions/normals/texcoords/colors/skin weights/bone indices into one VBO, packs per-mesh indices into one IBO, and stores `RwGlMeshData` in `geometry->gl_data`.
 - Re-instancing calls `rw_gl_destroy_instance_data(geo)` before creating new GL buffers.
 - `rw_geometry_destroy()` calls `rw_gl_destroy_instance_data(geo)` so VBO/IBO resources are not leaked.
-- Bone indices are masked to `0x3F` while packing to stay within the 64-matrix shader limit.
+- Skin vertex packing respects `RwSkin.num_weights`, pads missing influences with zeroes, and clamps invalid bone indices to 0.
+- Skin matrix upload is clamped to the hierarchy node count, skin bone count, and the 64-matrix shader limit.
 - `default_render()` uploads the world matrix, enumerates lights, selects a shader, uploads skin bone matrices when available, flushes render state, configures vertex input, iterates meshes, uploads material uniforms, binds textures, and issues `glDrawElements`.
 
 ## Important Invariants
@@ -146,27 +152,23 @@ Ownership notes in the test:
 - Intrusive links must be initialized before use and removed before re-linking.
 - `RwGeometry` uses `uint16_t` triangle indices; geometry creation rejects more than `UINT16_MAX` vertices.
 - `RwMeshHeader` is padded to 16 bytes so the `RwMesh` array stored immediately after it remains pointer-aligned.
-- Current mesh building supports triangle lists only; `RW_GEO_TRISTRIP` intentionally returns failure.
+- Mesh building supports triangle lists and `RW_GEO_TRISTRIP`. Tristrips are split into contiguous strip meshes when material IDs change.
 - `RwClump` owns its current frame. `rw_clump_set_frame` destroys the old owned frame and takes ownership of the new frame.
 - `RwHAnimHier.anim_data` is borrowed external storage; `rw_hanim_destroy()` does not free it.
 - `RwAtomic.hanim` is borrowed external storage; `rw_atomic_destroy()` does not destroy it.
 
 ## Best Next Tasks
 
-1. **Polish/review pass**
-   Check for leaks, GL errors, render-state inconsistencies, line-count drift, and missing coverage around alpha test, alpha blend, camera clear behavior, fog behavior, and texture filters.
-
-2. **Texture upload on raster creation/copy**
+1. **Texture upload policy**
    `rw_raster_from_image()` currently performs CPU copy only. Texture upload happens lazily on first render. If adding eager upload, only do it when a GL context/backend is available; CPU-only tests must not require GL. Preserve lazy upload as the safe fallback.
 
-3. **Optional focused tests**
-   Consider small tests for alpha test/discard, alpha blending, and `rw_camera_clear()` pixel behavior. Keep GLFW confined to tests.
+2. **Additional optional render coverage**
+   Fog behavior and more texture filter combinations could get focused pixel tests. Keep GLFW confined to tests.
 
 ## Current Known Gaps
 
-- `rw_raster_from_image()` does CPU copy only; GL upload happens lazily in the render loop.
-- Alpha test, alpha blend, and camera clear behavior do not yet have focused GL pixel tests.
-- Final line count target is approximate and currently over the original estimate.
+- `rw_raster_from_image()` does CPU copy only by design; GL upload happens lazily in the render loop or through explicit raster upload.
+- Final line count target is approximate and currently over the original estimate: 4,478 runtime C/header lines as of this handoff.
 
 ## Do Not Do
 

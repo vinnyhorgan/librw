@@ -90,17 +90,17 @@ default_instance(RwAtomic *a)
             }
 
             if (data->has_skin) {
+                int j;
+
                 fp = (float *)(v + data->weights_offset);
-                fp[0] = geo->skin->weights[i * 4 + 0];
-                fp[1] = geo->skin->weights[i * 4 + 1];
-                fp[2] = geo->skin->weights[i * 4 + 2];
-                fp[3] = geo->skin->weights[i * 4 + 3];
+                for (j = 0; j < 4; j++)
+                    fp[j] = j < geo->skin->num_weights ? geo->skin->weights[i * geo->skin->num_weights + j] : 0.0f;
                 {
                     uint8_t *ip = v + data->indices_offset;
-                    ip[0] = geo->skin->bone_indices[i * 4 + 0];
-                    ip[1] = geo->skin->bone_indices[i * 4 + 1];
-                    ip[2] = geo->skin->bone_indices[i * 4 + 2];
-                    ip[3] = geo->skin->bone_indices[i * 4 + 3];
+                    for (j = 0; j < 4; j++) {
+                        uint8_t idx = j < geo->skin->num_weights ? geo->skin->bone_indices[i * geo->skin->num_weights + j] : 0;
+                        ip[j] = idx < geo->skin->num_bones ? idx : 0;
+                    }
                 }
             }
         }
@@ -303,7 +303,8 @@ default_render(RwAtomic *a)
             rw_gl_state_bind_texture(0, rw_gl_get_white_texture());
         }
 
-        glDrawElements(GL_TRIANGLES, mesh->num_indices,
+        glDrawElements((geo->mesh_header->flags & RW_GEO_TRISTRIP) ? GL_TRIANGLE_STRIP : GL_TRIANGLES,
+                       mesh->num_indices,
                        GL_UNSIGNED_SHORT, (void *)(long)index_offset);
         index_offset += mesh->num_indices * sizeof(uint16_t);
     }

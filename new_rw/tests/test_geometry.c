@@ -87,6 +87,27 @@ test_geometry_rejects_bad_indices(void)
 }
 
 static void
+test_geometry_build_tristrip_meshes(void)
+{
+    RwGeometry *geo = rw_geometry_create(4, 2, RW_GEO_POSITIONS | RW_GEO_TRISTRIP);
+    RwMesh *meshes;
+
+    assert(geo);
+    geo->triangles[0].v[0] = 0; geo->triangles[0].v[1] = 1; geo->triangles[0].v[2] = 2; geo->triangles[0].mat_id = 0;
+    geo->triangles[1].v[0] = 2; geo->triangles[1].v[1] = 1; geo->triangles[1].v[2] = 3; geo->triangles[1].mat_id = 0;
+
+    assert(rw_geometry_build_meshes(geo));
+    assert(geo->mesh_header->flags & RW_GEO_TRISTRIP);
+    assert(geo->mesh_header->total_indices == 4);
+    meshes = (RwMesh *)(geo->mesh_header + 1);
+    assert(meshes[0].num_indices == 4);
+    assert(meshes[0].indices[0] == 0 && meshes[0].indices[1] == 1 && meshes[0].indices[2] == 2);
+    assert(meshes[0].indices[3] == 3);
+
+    rw_geometry_destroy(geo);
+}
+
+static void
 test_geometry_bounding_sphere(void)
 {
     RwGeometry *geo = rw_geometry_create(2, 0, RW_GEO_POSITIONS);
@@ -110,6 +131,7 @@ main(void)
     test_geometry_create_defaults();
     test_geometry_build_meshes();
     test_geometry_rejects_bad_indices();
+    test_geometry_build_tristrip_meshes();
     test_geometry_bounding_sphere();
     rw_engine_term();
     return 0;

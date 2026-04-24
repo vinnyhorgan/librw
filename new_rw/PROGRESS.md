@@ -1,6 +1,6 @@
 # rw — Implementation Progress
 
-## Status: All core phases complete — im3d focused test added, all tests pass
+## Status: All core phases complete — review polish done, all tests pass
 
 ## Phase Overview
 
@@ -9,13 +9,13 @@
 | 1. Foundation | `rw.h`, `rw_engine.c` | Done | Types, math, engine lifecycle — strict C99 syntax check passes |
 | 2. Frame hierarchy | `rw_frame.c` | Done | Transform tree, dirty propagation — math/frame tests pass |
 | 3. GL backend core | `rw_gl.c`, `rw_gl_internal.h`, `rw_raster.c`, `rw_material.c` | Done | State cache, 8 shader permutations, texture upload/mipmaps, lighting, skin matrices |
-| 4. Geometry + Pipeline | `rw_geometry.c`, `rw_pipeline.c` | Done | CPU geometry + GPU instance/render pipeline with interleaved VBO/IBO |
+| 4. Geometry + Pipeline | `rw_geometry.c`, `rw_pipeline.c` | Done | CPU geometry + GPU instance/render pipeline with interleaved VBO/IBO; trilist and tristrip mesh rendering |
 | 5. Scene graph | `rw_scene.c` | Done | CPU atomic/clump/world/light/camera, frustum planes, glClear wired |
 | 6. Immediate mode | `rw_render.c` | Done | im2d + im3d with dynamic VBOs |
 | 7. Animation | `rw_skin.c` | Done | CPU skin + HAnim, skin pipeline wired |
-| 8. Polish | `test_render.c`, `test_im2d.c`, `test_im3d.c`, `test_gta.c`, Makefile | In progress | GL render tests, im3d coverage, and GTA-like integration demo added |
+| 8. Polish | `test_clear.c`, `test_triangle.c`, `test_render.c`, `test_im2d.c`, `test_im3d.c`, `test_gta.c`, Makefile | Done | Focused GL tests, GTA-like integration demo, and review polish complete |
 
-**Total: ~4,253 lines of C in library code (target ~4,000).**
+**Total: 4,478 lines of C/header runtime code as of 2026-04-24 (target was approximate).**
 
 ## Phase 1: Foundation
 
@@ -47,7 +47,7 @@
 
 ### Tests
 - [x] test_math.c — foundation matrix/quaternion regression tests
-- [ ] test_clear.c — engine lifecycle + screen clear
+- [x] test_clear.c — engine lifecycle + camera clear pixel coverage
 
 ## Phase 2: Frame Hierarchy
 
@@ -93,7 +93,7 @@
 - [x] rw_raster_lock / rw_raster_unlock (CPU pixel storage only)
 - [x] rw_image_load (stb_image bridge)
 - [x] rw_image_destroy
-- [x] rw_raster_from_image (CPU copy only; GL upload still pending)
+- [x] rw_raster_from_image (CPU copy; GL upload remains lazy and happens on texture render/upload)
 
 ### rw_material.c
 - [x] rw_material_create / destroy
@@ -109,7 +109,7 @@
 - [x] rw_geometry_create
 - [x] rw_geometry_destroy
 - [x] rw_geometry_lock / unlock
-- [x] rw_geometry_build_meshes (group triangles by material)
+- [x] rw_geometry_build_meshes (group trilists by material; split tristrips into contiguous strip meshes)
 - [x] rw_geometry_calc_bounding_sphere
 - [x] allocateData (vertex array allocation)
 - [x] allocateMeshes (mesh header + mesh array)
@@ -127,7 +127,7 @@
 - [x] Vertex attrib enable/disable per mesh render
 
 ### Tests
-- [ ] test_triangle.c — single textured triangle renders
+- [x] test_triangle.c — default-pipeline triangle render, alpha test, and alpha blend pixel coverage
 - [x] tests/test_geometry.c — CPU geometry allocation, mesh grouping, lock invalidation, bounding sphere
 
 ## Phase 5: Scene Graph
@@ -161,7 +161,7 @@
 ### Tests
 - [x] test_im2d.c — primitive and indexed 2D quads render in an offscreen GLES2 context
 - [x] test_im3d.c — unlit primitive and ambient-lit indexed 3D immediate geometry render in an offscreen GLES2 context
-- [x] test_render.c — GL texture sampler coverage for POT mipmap generation and NPOT fallback
+- [x] test_render.c — default/skinned triangle rendering and GL texture sampler coverage for POT mipmap generation and NPOT fallback
 
 ## Phase 7: Animation
 
@@ -186,8 +186,8 @@
 - [x] Makefile (static library + all current CPU tests)
 - [x] test_im3d.c — focused immediate-mode 3D render coverage
 - [x] test_gta.c — mini GTA-like demo
-- [ ] Final line count verification (~4,000 target)
-- [ ] Code review pass (consistency, no leaks, no GL errors)
+- [x] Final line count verification (4,478 runtime C/header lines; target was approximate)
+- [x] Code review pass (consistency polish, focused render tests, no GL errors in suite)
 
 ## Change Log
 
@@ -212,3 +212,4 @@
 | 2026-04-24 | Texture GL | Added GLES2 `glGenerateMipmap` support for mipmapped texture filters on valid power-of-two rasters, NPOT/invalid fallback to non-mip filters, and GL sampler coverage in `test_render.c`; strict `make test` passes |
 | 2026-04-24 | Demo/Test | Added `tests/test_gta.c`, a GLFW offscreen GTA-like integration demo covering a small world, ambient/point lights, fog state, skinned character rendering, and im2d HUD overlay; added it to `GL_TEST_NAMES`; strict `make test` passes |
 | 2026-04-24 | im3d GL | Added `tests/test_im3d.c` covering unlit primitive and ambient-lit indexed im3d rendering in an offscreen GLFW GLES2 context; added it to `GL_TEST_NAMES`; strict `make test` passes |
+| 2026-04-24 | Review/Polish | Added tristrip mesh building/rendering, hardened no-frame GL light upload and skin matrix/weight bounds, fixed render-test material setup, added focused `test_clear.c` and `test_triangle.c` coverage for camera clear, default triangle render, alpha test, and alpha blend; strict `make test` passes |

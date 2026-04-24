@@ -676,11 +676,15 @@ rw_gl_set_lights(RwWorldLights *lights, int shader_idx)
 
     for (i = 0; i < lights->num_directionals && i < 8; i++) {
         RwLight *l = lights->directionals[i];
-        RwMatrix *ltm = rw_frame_get_ltm(l->frame);
         params[i][0] = 1.0f;
-        directions[i][0] = -ltm->at.x;
-        directions[i][1] = -ltm->at.y;
-        directions[i][2] = -ltm->at.z;
+        if (l->frame) {
+            RwMatrix *ltm = rw_frame_get_ltm(l->frame);
+            directions[i][0] = -ltm->at.x;
+            directions[i][1] = -ltm->at.y;
+            directions[i][2] = -ltm->at.z;
+        } else {
+            directions[i][2] = -1.0f;
+        }
         colors[i][0] = l->color.r;
         colors[i][1] = l->color.g;
         colors[i][2] = l->color.b;
@@ -692,12 +696,14 @@ rw_gl_set_lights(RwWorldLights *lights, int shader_idx)
         if (idx >= 8) break;
         {
             RwLight *l = lights->locals[i];
-            RwMatrix *ltm = rw_frame_get_ltm(l->frame);
             params[idx][0] = 2.0f;
             params[idx][1] = l->radius;
-            positions[idx][0] = ltm->pos.x;
-            positions[idx][1] = ltm->pos.y;
-            positions[idx][2] = ltm->pos.z;
+            if (l->frame) {
+                RwMatrix *ltm = rw_frame_get_ltm(l->frame);
+                positions[idx][0] = ltm->pos.x;
+                positions[idx][1] = ltm->pos.y;
+                positions[idx][2] = ltm->pos.z;
+            }
             positions[idx][3] = 1.0f;
             colors[idx][0] = l->color.r;
             colors[idx][1] = l->color.g;
@@ -723,7 +729,7 @@ rw_gl_upload_skin_matrices(RwHAnimHier *hier, RwSkin *skin, int shader_idx)
 {
     RwShaderUniforms *u;
     float matrices[64][16];
-    int i;
+    int i, count;
 
     if (!hier || !skin || shader_idx < 0 || shader_idx >= SHADER_COUNT) return;
     if (!shader_programs[shader_idx]) return;
@@ -731,9 +737,17 @@ rw_gl_upload_skin_matrices(RwHAnimHier *hier, RwSkin *skin, int shader_idx)
     u = &shader_uniforms[shader_idx];
     if (u->locations[U_BONE_MATRICES] < 0) return;
 
+    count = hier->num_nodes;
+    if (count > skin->num_bones)
+        count = skin->num_bones;
+    if (count > 64)
+        count = 64;
+    if (count <= 0)
+        return;
+
     rw_gl_state_use_program(shader_programs[shader_idx]);
 
-    for (i = 0; i < hier->num_nodes && i < 64; i++) {
+    for (i = 0; i < count; i++) {
         RwRawMatrix world_raw, inv_raw, result;
         float *inv = &skin->inverse_matrices[i * 16];
 
@@ -753,8 +767,7 @@ rw_gl_upload_skin_matrices(RwHAnimHier *hier, RwSkin *skin, int shader_idx)
     }
 
     glUniformMatrix4fv(u->locations[U_BONE_MATRICES],
-                       hier->num_nodes < 64 ? hier->num_nodes : 64,
-                       GL_FALSE, &matrices[0][0]);
+                       count, GL_FALSE, &matrices[0][0]);
 }
 
 /* ---- Shader Selection ---- */

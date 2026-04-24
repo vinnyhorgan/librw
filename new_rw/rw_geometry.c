@@ -11,6 +11,124 @@ rw_geometry_free_meshes(RwGeometry *geo)
 }
 
 static int
+rw_triangle_new_vertex(const RwTriangle *prev, const RwTriangle *tri, uint16_t *out)
+{
+    int i, j, shared, unique = -1;
+
+    shared = 0;
+    for (i = 0; i < 3; i++) {
+        int is_shared = 0;
+        for (j = 0; j < 3; j++) {
+            if (tri->v[i] == prev->v[j]) {
+                is_shared = 1;
+                break;
+            }
+        }
+        if (is_shared)
+            shared++;
+        else
+            unique = i;
+    }
+
+    if (shared != 2 || unique < 0)
+        return 0;
+    *out = tri->v[unique];
+    return 1;
+}
+
+static int
+rw_geometry_build_tristrip_meshes(RwGeometry *geo)
+{
+    int i, segment, num_segments;
+    uint32_t total_indices;
+    uint32_t *counts;
+    uint16_t *indices;
+    RwMesh *meshes;
+    size_t size;
+
+    counts = rw_malloc((size_t)geo->num_triangles * sizeof(*counts));
+    if (!counts)
+        return 0;
+    memset(counts, 0, (size_t)geo->num_triangles * sizeof(*counts));
+
+    num_segments = 0;
+    total_indices = 0;
+    for (i = 0; i < geo->num_triangles; i++) {
+        if (geo->triangles[i].mat_id >= (uint16_t)geo->num_materials)
+            goto fail;
+        if (geo->triangles[i].v[0] >= (uint16_t)geo->num_vertices ||
+            geo->triangles[i].v[1] >= (uint16_t)geo->num_vertices ||
+            geo->triangles[i].v[2] >= (uint16_t)geo->num_vertices)
+            goto fail;
+
+        if (i == 0 || geo->triangles[i].mat_id != geo->triangles[i - 1].mat_id) {
+            counts[num_segments++] = 3;
+            total_indices += 3;
+        } else {
+            uint16_t new_vertex;
+            if (!rw_triangle_new_vertex(&geo->triangles[i - 1], &geo->triangles[i], &new_vertex))
+                goto fail;
+            counts[num_segments - 1]++;
+            total_indices++;
+        }
+    }
+
+    size = sizeof(RwMeshHeader) + (size_t)num_segments * sizeof(RwMesh) + (size_t)total_indices * sizeof(uint16_t);
+    rw_geometry_free_meshes(geo);
+    geo->mesh_header = rw_malloc(size);
+    if (!geo->mesh_header)
+        goto fail;
+    memset(geo->mesh_header, 0, size);
+
+    geo->mesh_header->flags = RW_GEO_TRISTRIP;
+    geo->mesh_header->num_meshes = (uint16_t)num_segments;
+    geo->mesh_header->total_indices = total_indices;
+
+    meshes = (RwMesh *)(geo->mesh_header + 1);
+    indices = (uint16_t *)(meshes + num_segments);
+    for (i = 0; i < num_segments; i++) {
+        meshes[i].indices = indices;
+        meshes[i].num_indices = counts[i];
+        indices += counts[i];
+        counts[i] = 0;
+    }
+
+    segment = -1;
+    for (i = 0; i < geo->num_triangles; i++) {
+        RwTriangle *tri = &geo->triangles[i];
+        RwMesh *mesh;
+        uint32_t idx;
+
+        if (i == 0 || tri->mat_id != geo->triangles[i - 1].mat_id) {
+            segment++;
+            meshes[segment].material = geo->materials[tri->mat_id];
+        }
+
+        mesh = &meshes[segment];
+        idx = counts[segment];
+        if (idx == 0) {
+            mesh->indices[idx++] = tri->v[0];
+            mesh->indices[idx++] = tri->v[1];
+            mesh->indices[idx++] = tri->v[2];
+        } else {
+            uint16_t new_vertex;
+            if (!rw_triangle_new_vertex(&geo->triangles[i - 1], tri, &new_vertex))
+                goto fail;
+            mesh->indices[idx++] = new_vertex;
+        }
+        counts[segment] = idx;
+    }
+
+    rw_free(counts);
+    return 1;
+
+fail:
+    rw_geometry_free_meshes(geo);
+    rw_free(counts);
+    return 0;
+}
+
+static int
 rw_geometry_alloc_data(RwGeometry *geo)
 {
     if (geo->num_triangles) {
@@ -149,7 +267,7 @@ rw_geometry_build_meshes(RwGeometry *geo)
     if (!geo || !geo->triangles || geo->num_materials <= 0)
         return 0;
     if (geo->geo_flags & RW_GEO_TRISTRIP)
-        return 0;
+        return rw_geometry_build_tristrip_meshes(geo);
 
     counts = rw_malloc((size_t)geo->num_materials * sizeof(*counts));
     if (!counts)
@@ -170,7 +288,9 @@ rw_geometry_build_meshes(RwGeometry *geo)
         counts[geo->triangles[i].mat_id] += 3;
     }
 
-    total_indices = (uint32_t)geo->num_triangles * 3u;
+    total_indices = 0;
+    for (i = 0; i < geo->num_materials; i++)
+        total_indices += counts[i];
     size = sizeof(RwMeshHeader) + (size_t)geo->num_materials * sizeof(RwMesh) + (size_t)total_indices * sizeof(uint16_t);
     rw_geometry_free_meshes(geo);
     geo->mesh_header = rw_malloc(size);
