@@ -15,7 +15,7 @@ Everything outside `new_rw/` is the original C++ librw codebase and is reference
 
 ## Verified State
 
-The runtime has complete CPU-side core systems, a GLES2 backend, default and skin pipelines, immediate-mode infrastructure, and GLES2 auto-mipmapping for valid power-of-two rasters. The current suite passes with strict C99 flags and GLFW offscreen GLES2 render tests.
+The runtime has complete CPU-side core systems, a GLES2 backend, default and skin pipelines, immediate-mode infrastructure, GLES2 auto-mipmapping for valid power-of-two rasters, and a GTA-like offscreen integration demo. The current suite passes with strict C99 flags and GLFW offscreen GLES2 render tests.
 
 Verify with:
 
@@ -23,7 +23,7 @@ Verify with:
 make test
 ```
 
-The last verified run, from `/home/dvh/Downloads/librw/new_rw`, passed all tests after the auto-mipmapping work:
+The last verified run, from `/home/dvh/Downloads/librw/new_rw`, passed all tests after adding `tests/test_gta.c`:
 
 - `tests/test_math.c`
 - `tests/test_frame.c`
@@ -33,11 +33,30 @@ The last verified run, from `/home/dvh/Downloads/librw/new_rw`, passed all tests
 - `tests/test_skin.c`
 - `tests/test_render.c`
 - `tests/test_im2d.c`
+- `tests/test_gta.c`
 
 The strict build uses:
 
 ```text
 cc -I. -Ivendor/glad/include -Ivendor/glfw/include -std=c99 -Wall -Wextra -Werror -pedantic -O2 ... -lm -lglfw -ldl
+```
+
+## Current Worktree Notes
+
+If this handoff is used before the current changes are committed, expect exactly these intentional changes:
+
+- `new_rw/tests/test_gta.c` - new offscreen GLES2 GTA-like integration demo.
+- `new_rw/Makefile` - adds `gta` to `GL_TEST_NAMES` so `make test` builds and runs it.
+- `new_rw/PROGRESS.md` - marks the GTA-like demo complete and records the passing verification.
+- `new_rw/HANDOFF.md` - this updated next-session prompt.
+
+Current expected repository-level status before committing:
+
+```text
+ M new_rw/HANDOFF.md
+ M new_rw/Makefile
+ M new_rw/PROGRESS.md
+?? new_rw/tests/test_gta.c
 ```
 
 ## Current Implementation
@@ -65,18 +84,31 @@ Do not redo these unless a regression is found.
 - `default_render()` calls `rw_gl_upload_skin_matrices(a->hanim, geo->skin, shader_idx)` when geometry is skinned and a hierarchy is attached.
 - `tests/test_skin.c` covers the HAnim setter.
 - `tests/test_render.c` renders default and skinned triangles in an offscreen GLFW GLES2 context and checks the center pixel.
+- `tests/test_render.c` covers mipmapped texture sampler setup: valid power-of-two rasters generate mipmaps, while NPOT rasters fall back to non-mip filters without GL errors.
 - `tests/test_im2d.c` renders primitive and indexed im2d quads in an offscreen GLFW GLES2 context and checks the center pixel.
-- `tests/test_render.c` now also covers mipmapped texture sampler setup: valid power-of-two rasters generate mipmaps, while NPOT rasters fall back to non-mip filters without GL errors.
-- `Makefile` now groups GLFW-dependent render tests through `GL_TEST_NAMES := render im2d`.
+- `tests/test_gta.c` renders a small GTA-like scene in an offscreen GLFW GLES2 context and checks scene/HUD pixels with no GL errors.
+- `Makefile` groups GLFW-dependent render tests through `GL_TEST_NAMES := render im2d gta`.
 
-## Current Worktree Notes
+## `tests/test_gta.c` Details
 
-If this handoff is used before the current changes are committed, expect these intentional modified files:
+The GTA-like demo intentionally stays small and deterministic. It creates:
 
-- `new_rw/rw.h` - added `RwGlRaster.has_mipmaps`.
-- `new_rw/rw_gl.c` - added mip-filter detection, power-of-two validation, one-shot `glGenerateMipmap`, and non-mip fallback.
-- `new_rw/tests/test_render.c` - added offscreen GLES2 coverage for POT mipmaps and NPOT fallback.
-- `new_rw/PROGRESS.md` and `new_rw/HANDOFF.md` - updated status and handoff documentation.
+- A hidden GLFW OpenGL ES 2.0 context for testing only.
+- A camera, world, and clump.
+- Ground/building quads using prelit geometry and the default pipeline.
+- Ambient and point lights.
+- Fog render state.
+- A skinned triangle character through `RwSkin`, `RwHAnimHier`, `rw_atomic_set_hanim_hierarchy`, and `rw_skin_set_pipeline`.
+- An im2d HUD bar drawn after the world render.
+- GL error checks plus center-scene and HUD pixel assertions.
+
+Ownership notes in the test:
+
+- Clump destruction destroys its atomics and their geometry.
+- Atomic frames are parented under the clump frame so clump destruction also destroys them.
+- `RwSkin` and `RwHAnimHier` remain borrowed/external and are destroyed explicitly after the clump.
+- The point light owns no frame; the test stores `point_frame`, destroys the light, then destroys the frame.
+- The animation keyframes are local stack data used only for interpolation; `hier->anim_data` is cleared before returning from `make_skinned_character`.
 
 ## GL Backend Notes
 
@@ -119,19 +151,19 @@ If this handoff is used before the current changes are committed, expect these i
 
 ## Best Next Tasks
 
-1. **Texture upload on raster creation/copy**
+1. **Polish/review pass**
+   Check for leaks, GL errors, render-state inconsistencies, line-count drift, and missing coverage around alpha test, alpha blend, im3d rendering, camera clear behavior, fog behavior, and texture filters.
+
+2. **Texture upload on raster creation/copy**
    `rw_raster_from_image()` currently performs CPU copy only. Texture upload happens lazily on first render. If adding eager upload, only do it when a GL context/backend is available; CPU-only tests must not require GL. Preserve lazy upload as the safe fallback.
 
-2. **Add `tests/test_gta.c` mini demo**
-   Exercise a small GTA-like scene: ground plane, building boxes, animated/skinned character, follow camera, fog, and HUD overlay.
-
-3. **Polish/review pass**
-   Check for leaks, GL errors, render-state inconsistencies, line-count drift, and missing coverage around texture filters, fog, alpha test, alpha blend, im3d rendering, and camera clear behavior.
+3. **Optional focused tests**
+   Consider small tests for alpha test/discard, alpha blending, im3d lit/unlit rendering, and `rw_camera_clear()` pixel behavior. Keep GLFW confined to tests.
 
 ## Current Known Gaps
 
 - `rw_raster_from_image()` does CPU copy only; GL upload happens lazily in the render loop.
-- No GTA-like integration demo yet.
+- Alpha test, alpha blend, im3d rendering, and camera clear behavior do not yet have focused GL pixel tests.
 - Final line count target is approximate and currently over the original estimate.
 
 ## Do Not Do
@@ -149,4 +181,4 @@ If this handoff is used before the current changes are committed, expect these i
 - Run `make test` from `/home/dvh/Downloads/librw/new_rw`.
 - Update `PROGRESS.md` with completed work and verification status.
 - Update this file so it remains an accurate prompt for the next session.
-- Mention any intentional uncommitted files or known test/environment caveats.
+- Mention intentional uncommitted files and any known test/environment caveats.
