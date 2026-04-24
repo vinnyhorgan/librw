@@ -1,4 +1,4 @@
-# rw — Phase 5 CPU Scene Graph Started
+# rw — Phase 7 CPU Animation Started
 
 ## Project
 
@@ -154,6 +154,24 @@ Verified commands:
 ## What's Next: Phase 4 GL Prerequisites
 
 Next useful progress is GL-facing Phase 4/3 work: `rw_pipeline.c` instance-data scaffolding plus `rw_gl.c` state/shader/device hooks. Full triangle rendering still requires GL backend state/shaders and pipeline render paths.
+
+## Phase 7 CPU Progress
+
+Added `new_rw/rw_skin.c` and `new_rw/tests/test_skin.c`.
+
+Implemented CPU-side animation functions:
+- `rw_skin_create/destroy/set_data`
+- `rw_hanim_create/destroy/attach/interpolate/update_matrices`
+
+Important behavior:
+- Skins allocate inverse bind matrices as `num_bones * 16` floats and per-vertex bone indices/weights as `num_verts * num_weights` entries.
+- Added `RW_HANIM_PUSH` and `RW_HANIM_POP` flags in `rw.h` for stack-based hierarchy traversal.
+- `rw_hanim_interpolate` treats `anim_data` as frame-major packed keyframes: `num_frames * num_nodes`.
+- `rw_hanim_update_matrices` builds local matrices from interpolated quaternion + translation, accumulates globals through the PUSH/POP stack, writes `h->matrices[index]`, and mirrors local transforms onto attached frames.
+- `rw_skin_set_pipeline` remains a no-op until the GL skin pipeline exists.
+
+Verified commands:
+- `gcc -std=c99 -Wall -Wextra -Werror -I. tests/test_skin.c rw_engine.c rw_frame.c rw_skin.c -lm -o test_skin && ./test_skin`
 
 ## Build Notes
 - `gcc -std=c99 -Wall -Wextra -Werror`

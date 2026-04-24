@@ -170,6 +170,11 @@ enum {
     RW_FRAME_HIERARCHYSYNC = 0x02,
 };
 
+enum {
+    RW_HANIM_PUSH = 0x01,
+    RW_HANIM_POP  = 0x02,
+};
+
 struct RwFrame {
     uint8_t type, subtype, flags, priv_flags;
     RwMatrix matrix;

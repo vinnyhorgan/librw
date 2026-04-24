@@ -1,6 +1,6 @@
 # rw — Implementation Progress
 
-## Status: Phase 5 CPU SCENE GRAPH PROGRESS — math/frame/material/geometry/scene tests pass
+## Status: Phase 7 CPU ANIMATION PROGRESS — math/frame/material/geometry/scene/skin tests pass
 
 ## Phase Overview
 
@@ -12,7 +12,7 @@
 | 4. Geometry + Pipeline | `rw_geometry.c`, `rw_pipeline.c` | In progress | CPU geometry allocation, mesh building, bounding sphere done; GPU instancing/render not started |
 | 5. Scene graph | `rw_scene.c` | In progress | CPU atomic/clump/world/light/camera basics plus frustum planes done; GL clear/render integration pending |
 | 6. Immediate mode | `rw_render.c` | Not started | im2d + im3d |
-| 7. Animation | `rw_skin.c` | Not started | Skin + HAnim |
+| 7. Animation | `rw_skin.c` | In progress | CPU skin allocation, HAnim attach/interpolate/update done; GL skin pipeline pending |
 | 8. Polish | `test_gta.c`, Makefile | Not started | Integration demo |
 
 ## Phase 1: Foundation
@@ -153,19 +153,19 @@
 ## Phase 7: Animation
 
 ### rw_skin.c
-- [ ] rw_skin_create / destroy
-- [ ] rw_skin_set_data (indices, weights, inverse matrices)
+- [x] rw_skin_create / destroy
+- [x] rw_skin_set_data (indices, weights, inverse matrices)
 - [ ] rw_skin_set_pipeline
-- [ ] rw_hanim_create / destroy
-- [ ] rw_hanim_attach (connect nodes to frames)
-- [ ] rw_hanim_interpolate (quaternion slerp + translation lerp)
-- [ ] rw_hanim_update_matrices (hierarchy traversal, PUSH/POP)
+- [x] rw_hanim_create / destroy
+- [x] rw_hanim_attach (connect nodes to frames)
+- [x] rw_hanim_interpolate (quaternion slerp + translation lerp)
+- [x] rw_hanim_update_matrices (hierarchy traversal, PUSH/POP)
 - [ ] GL: skin vertex shader permutation
 - [ ] GL: bone matrix upload (global × inverse_bind)
 - [ ] GL: skinned vertex attrib setup (weights + indices)
 
 ### Tests
-- [ ] test_skin.c — skeletal animation renders correctly
+- [x] test_skin.c — CPU skin allocation and HAnim interpolation/update coverage
 
 ## Phase 8: Polish
 
@@ -186,3 +186,4 @@
 | 2026-04-24 | 4 | Added CPU-side `rw_geometry.c` and `tests/test_geometry.c`; geometry allocation, default material, trilist mesh grouping, polygon-lock mesh invalidation, and bounding sphere coverage pass |
 | 2026-04-24 | 5 | Added CPU-side `rw_scene.c` and `tests/test_scene.c`; atomics/clumps/world render dispatch, light enumeration, camera update, and simple frustum sphere testing pass |
 | 2026-04-24 | 5 | Added camera frustum plane extraction and switched sphere culling to stored planes; extended scene test coverage for extracted planes and moved cameras |
+| 2026-04-24 | 7 | Added CPU-side `rw_skin.c` and `tests/test_skin.c`; skin allocation, HAnim node attachment, keyframe interpolation, and PUSH/POP matrix updates pass |
