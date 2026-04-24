@@ -1,6 +1,6 @@
 # rw — Implementation Progress
 
-## Status: Phase 7 CPU ANIMATION PROGRESS - strict Makefile build and CPU tests pass
+## Status: Phase 3/4 GL BACKEND COMPLETE - strict Makefile build and CPU tests pass
 
 ## Phase Overview
 
@@ -8,11 +8,11 @@
 |---|---|---|---|
 | 1. Foundation | `rw.h`, `rw_engine.c` | Done | Types, math, engine lifecycle — strict C99 syntax check passes |
 | 2. Frame hierarchy | `rw_frame.c` | Done | Transform tree, dirty propagation — math/frame tests pass |
-| 3. GL backend core | `rw_gl.c` (partial), `rw_raster.c`, `rw_material.c` | In progress | CPU material/texture/texdict, raster/image loading done; GL upload/shaders not started |
-| 4. Geometry + Pipeline | `rw_geometry.c`, `rw_pipeline.c` | In progress | CPU geometry allocation, mesh building, bounding sphere done; GPU instancing/render not started |
+| 3. GL backend core | `rw_gl.c`, `rw_gl_internal.h`, `rw_raster.c`, `rw_material.c` | Done | State cache, 7 shader permutations, texture upload, lighting, skin matrices |
+| 4. Geometry + Pipeline | `rw_geometry.c`, `rw_pipeline.c` | Done | CPU geometry + GPU instance/render pipeline with interleaved VBO/IBO |
 | 5. Scene graph | `rw_scene.c` | In progress | CPU atomic/clump/world/light/camera basics plus frustum planes done; GL clear/render integration pending |
 | 6. Immediate mode | `rw_render.c` | Not started | im2d + im3d |
-| 7. Animation | `rw_skin.c` | In progress | CPU skin allocation, HAnim attach/interpolate/update done; GL skin pipeline pending |
+| 7. Animation | `rw_skin.c` | In progress | CPU skin + HAnim done; skin shader permutation compiled, bone matrix upload implemented; pipeline wiring pending |
 | 8. Polish | `test_gta.c`, Makefile | In progress | Strict Makefile added; integration demo not started |
 
 ## Phase 1: Foundation
@@ -34,10 +34,10 @@
 
 ### rw_engine.c
 - [x] rw_engine_init (memory setup, validates custom allocator table)
-- [x] rw_engine_open (lifecycle transition; GL device hooks come later)
-- [x] rw_engine_start (default render-state setup; shader compile comes with GL backend)
-- [x] rw_engine_stop
-- [x] rw_engine_close
+- [x] rw_engine_open (calls rw_gl_open)
+- [x] rw_engine_start (calls rw_gl_start, compiles shaders)
+- [x] rw_engine_stop (calls rw_gl_stop)
+- [x] rw_engine_close (calls rw_gl_close)
 - [x] rw_engine_term
 - [x] rw_set_render_state / rw_get_render_state
 - [x] Linked list helpers (init, add, remove)
@@ -68,14 +68,21 @@
 
 ## Phase 3: GL Backend Core + Textures
 
-### rw_gl.c (partial)
-- [ ] GL state cache struct and flush functions
-- [ ] Shader compilation from string literals
-- [ ] Shader permutation management
-- [ ] Shader source: default.vert, default.frag (as string literals)
-- [ ] Shader source: im2d.vert, im2d.frag
-- [ ] rw_gl_init (compile all shaders, cache uniform locations)
-- [ ] rw_gl_shutdown
+### rw_gl.c
+- [x] GL state cache struct and flush functions (RwGlState: blend, depth, cull, texture, program)
+- [x] Shader compilation from string literals (compile/link helpers with error logging)
+- [x] Shader permutation management (7 permutations with #define prepending)
+- [x] Shader source: default.vert, default.frag (as string literals)
+- [x] Shader source: im2d.vert, im2d.frag, im3d.vert, im3d.frag, im3d_lit.vert
+- [x] rw_gl_open (device init, state cache reset, default GL state)
+- [x] rw_gl_start (compile all shaders, cache uniform locations)
+- [x] rw_gl_stop / rw_gl_close (delete programs, reset state)
+- [x] Camera matrix upload (proj + view uploaded to all programs)
+- [x] Lighting upload (ambient, directional, point light uniform arrays)
+- [x] Texture upload (glGenTextures + glTexImage2D for RGBA rasters)
+- [x] Texture sampler state (filter/wrap mode mapping)
+- [x] Skin matrix upload (hierarchy × inverse_bind, transposed for GL)
+- [x] Shader selection logic (based on light counts + skin flag)
 
 ### rw_raster.c
 - [x] rw_raster_create
@@ -105,14 +112,16 @@
 - [x] allocateMeshes (mesh header + mesh array)
 
 ### rw_pipeline.c
-- [ ] Default pipeline: instance callback
-- [ ] Default pipeline: render callback
-- [ ] Interleaved vertex buffer packing
-- [ ] GL instance: VBO/IBO creation and upload
-- [ ] GL render: bind buffers, set attrib pointers, iterate meshes
-- [ ] Material/texture state setting per mesh
-- [ ] Light uniform upload
-- [ ] World matrix upload
+- [x] Default pipeline: instance callback (interleaved VBO packing)
+- [x] Default pipeline: render callback (mesh loop with material/texture/light state)
+- [x] Interleaved vertex buffer packing (pos3f + normal3f + tex2f + color4ub [+ weights4f + indices4ub])
+- [x] GL instance: VBO/IBO creation and upload
+- [x] GL render: bind buffers, set attrib pointers, iterate meshes
+- [x] Material/texture state setting per mesh
+- [x] Light uniform upload (via rw_gl_set_lights)
+- [x] World matrix upload (transpose for column-major GL)
+- [x] Fog data and alpha test uniform upload
+- [x] Vertex attrib enable/disable per mesh render
 
 ### Tests
 - [ ] test_triangle.c — single textured triangle renders
@@ -155,14 +164,14 @@
 ### rw_skin.c
 - [x] rw_skin_create / destroy
 - [x] rw_skin_set_data (indices, weights, inverse matrices)
-- [ ] rw_skin_set_pipeline
+- [ ] rw_skin_set_pipeline (wiring to actual skin pipeline)
 - [x] rw_hanim_create / destroy
 - [x] rw_hanim_attach (connect nodes to frames)
 - [x] rw_hanim_interpolate (quaternion slerp + translation lerp)
 - [x] rw_hanim_update_matrices (hierarchy traversal, PUSH/POP)
-- [ ] GL: skin vertex shader permutation
-- [ ] GL: bone matrix upload (global × inverse_bind)
-- [ ] GL: skinned vertex attrib setup (weights + indices)
+- [x] GL: skin vertex shader permutation (skin_dir_point)
+- [x] GL: bone matrix upload (global × inverse_bind)
+- [x] GL: skinned vertex attrib setup (weights + indices)
 
 ### Tests
 - [x] test_skin.c — CPU skin allocation and HAnim interpolation/update coverage
@@ -188,3 +197,4 @@
 | 2026-04-24 | 5 | Added camera frustum plane extraction and switched sphere culling to stored planes; extended scene test coverage for extracted planes and moved cameras |
 | 2026-04-24 | 7 | Added CPU-side `rw_skin.c` and `tests/test_skin.c`; skin allocation, HAnim node attachment, keyframe interpolation, and PUSH/POP matrix updates pass |
 | 2026-04-24 | Audit/Build | Added `new_rw/Makefile` with strict C99 static-library/test build; fixed zero-axis rotation, near-linear quaternion slerp, matrix/header padding, geometry lock clearing, mesh index validation, and clump frame replacement ownership; all current CPU tests pass through `make test` and sanitized test builds |
+| 2026-04-24 | 3/4 GL | Added `rw_gl.c` (~746 lines), `rw_pipeline.c` (~343 lines), `rw_gl_internal.h` (~88 lines); state cache, 7 GLSL ES 1.00 shader permutations, interleaved VBO/IBO packing, default render pipeline, texture upload, lighting, skin matrix upload, camera matrix upload; wired engine lifecycle to GL backend; all existing CPU tests still pass |

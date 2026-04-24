@@ -6,7 +6,7 @@ OBJ_DIR := $(BUILD_DIR)/obj
 BIN_DIR := $(BUILD_DIR)/bin
 
 CPPFLAGS ?=
-CPPFLAGS += -I.
+CPPFLAGS += -I. -Ivendor/glad/include
 CFLAGS ?= -std=c99 -Wall -Wextra -Werror -pedantic -O2
 LDFLAGS ?=
 LDLIBS ?= -lm
@@ -16,7 +16,9 @@ LIB_SRCS := \
 	rw_engine.c \
 	rw_frame.c \
 	rw_geometry.c \
+	rw_gl.c \
 	rw_material.c \
+	rw_pipeline.c \
 	rw_raster.c \
 	rw_scene.c \
 	rw_skin.c

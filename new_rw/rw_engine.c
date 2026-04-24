@@ -1,4 +1,5 @@
 #include "rw.h"
+#include "rw_gl_internal.h"
 #include <stdlib.h>
 #include <string.h>
 
@@ -57,6 +58,9 @@ rw_engine_open(void)
     if (engine_state != RW_ENGINE_INITIALIZED)
         return 0;
 
+    if (!rw_gl_open())
+        return 0;
+
     engine_state = RW_ENGINE_OPENED;
     return 1;
 }
@@ -65,6 +69,9 @@ int
 rw_engine_start(void)
 {
     if (engine_state != RW_ENGINE_OPENED)
+        return 0;
+
+    if (!rw_gl_start())
         return 0;
 
     rw_set_render_state(RW_STATE_ZTESTENABLE, 1);
@@ -88,6 +95,7 @@ rw_engine_stop(void)
 {
     if (engine_state != RW_ENGINE_STARTED)
         return;
+    rw_gl_stop();
     engine_state = RW_ENGINE_OPENED;
 }
 
@@ -96,6 +104,7 @@ rw_engine_close(void)
 {
     if (engine_state != RW_ENGINE_OPENED)
         return;
+    rw_gl_close();
     engine_state = RW_ENGINE_INITIALIZED;
 }
 
