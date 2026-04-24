@@ -312,6 +312,7 @@ typedef struct {
     uint32_t flags;
     uint16_t num_meshes;
     uint32_t total_indices;
+    uint32_t _pad0;               /* keeps following RwMesh array pointer-aligned */
     /* meshes array follows this struct in memory */
     /* access via: ((RwMesh*)(header + 1)) */
 } RwMeshHeader;
@@ -967,33 +968,17 @@ make test_vis    # runs tests with visible window (visual check)
 
 ## 12. Build System (Makefile)
 
+The current checked-in `Makefile` builds a strict C99 static library and all currently implemented CPU tests. It deliberately includes only first-party runtime files that exist today; future GL/pipeline/immediate-mode files should be added to `LIB_SRCS` when implemented.
+
 ```makefile
-CC = gcc
-CFLAGS = -std=c99 -Wall -Wextra -O2 -Ivendor
-LIB_SRCS = rw_engine.c rw_frame.c rw_geometry.c rw_material.c rw_raster.c \
-           rw_scene.c rw_pipeline.c rw_render.c rw_skin.c rw_gl.c
-LIB_OBJS = $(LIB_SRCS:.c=.o)
-
-librw.a: $(LIB_OBJS)
-	ar rcs $@ $^
-
-%.o: %.c rw.h
-	$(CC) $(CFLAGS) -c $< -o $@
-
-# Tests
-TEST_LIBS = -L. -lrw -lGLESv2 -lglfw -lm -ldl
-
-test_%: tests/test_%.c librw.a
-	$(CC) $(CFLAGS) -o $@ $< $(TEST_LIBS)
-
-TESTS = test_math test_clear test_frame test_triangle test_scene test_im2d test_skin
-
-test: $(TESTS)
-	@for t in $(TESTS); do echo "=== $$t ===" && ./$$t && echo "PASS" || echo "FAIL"; done
-
-clean:
-	rm -f *.o librw.a $(TESTS)
+make          # builds build/librw.a and build/bin/test_*
+make test     # builds and runs all current CPU tests
+make clean    # removes build outputs and legacy root test artifacts
 ```
+
+Current CPU test binaries: `test_math`, `test_frame`, `test_material`, `test_geometry`, `test_scene`, and `test_skin`.
+
+When GL work starts, add the backend files to `LIB_SRCS` and append the platform test link flags only for GL tests, not for the core library. The runtime library itself must keep no windowing dependency.
 
 ## 13. Implementation Order with Exact librw Source Mapping
 

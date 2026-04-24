@@ -71,11 +71,41 @@ test_matrix_invert(void)
     assert_v3d(ident.pos, 0.0f, 0.0f, 0.0f);
 }
 
+static void
+test_zero_axis_rotate(void)
+{
+    RwMatrix m;
+
+    rw_matrix_set_identity(&m);
+    rw_matrix_translate(&m, (RwV3d){1, 2, 3}, RW_COMBINE_REPLACE);
+    rw_matrix_rotate(&m, (RwV3d){0, 0, 0}, 90.0f, RW_COMBINE_POSTCONCAT);
+    assert_v3d(m.pos, 1.0f, 2.0f, 3.0f);
+
+    rw_matrix_rotate(&m, (RwV3d){0, 0, 0}, 90.0f, RW_COMBINE_REPLACE);
+    assert_v3d(m.right, 1.0f, 0.0f, 0.0f);
+    assert_v3d(m.up, 0.0f, 1.0f, 0.0f);
+    assert_v3d(m.at, 0.0f, 0.0f, 1.0f);
+    assert_v3d(m.pos, 0.0f, 0.0f, 0.0f);
+}
+
+static void
+test_quat_near_slerp(void)
+{
+    RwQuat a = {0.0f, 0.0f, 0.0f, 1.0f};
+    RwQuat b = {0.0001f, 0.0f, 0.0f, 1.0f};
+    RwQuat q = rw_quat_slerp(a, b, 0.5f);
+
+    assert(q.x > 0.0f);
+    assert(near(sqrtf(q.w*q.w + q.x*q.x + q.y*q.y + q.z*q.z), 1.0f));
+}
+
 int
 main(void)
 {
     test_matrix_multiply();
     test_replace_ops();
     test_matrix_invert();
+    test_zero_axis_rotate();
+    test_quat_near_slerp();
     return 0;
 }

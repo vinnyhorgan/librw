@@ -108,6 +108,18 @@ test_world_lights(void)
 }
 
 static void
+test_clump_frame_replacement(void)
+{
+    RwClump *clump = rw_clump_create();
+    RwFrame *frame = rw_frame_create();
+
+    assert(clump && frame);
+    rw_clump_set_frame(clump, frame);
+    assert(rw_clump_get_frame(clump) == frame);
+    rw_clump_destroy(clump);
+}
+
+static void
 test_camera_frustum(void)
 {
     RwCamera *camera = rw_camera_create();
@@ -149,6 +161,7 @@ main(void)
     assert(rw_engine_init(NULL));
     test_atomic_clump_world_render();
     test_world_lights();
+    test_clump_frame_replacement();
     test_camera_frustum();
     rw_engine_term();
     return 0;

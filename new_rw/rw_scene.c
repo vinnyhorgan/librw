@@ -211,8 +211,11 @@ rw_clump_get_frame(RwClump *c)
 void
 rw_clump_set_frame(RwClump *c, RwFrame *f)
 {
-    if (c)
-        c->frame = f;
+    if (!c || c->frame == f)
+        return;
+
+    rw_frame_destroy(c->frame);
+    c->frame = f;
 }
 
 void

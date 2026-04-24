@@ -61,9 +61,27 @@ test_geometry_build_meshes(void)
     assert(meshes[1].indices[0] == 2 && meshes[1].indices[1] == 1 && meshes[1].indices[2] == 3);
 
     rw_geometry_lock(geo, RW_LOCK_POLYGONS);
+    assert(geo->locked & RW_LOCK_POLYGONS);
     assert(geo->mesh_header == NULL);
     rw_geometry_unlock(geo);
+    assert(geo->locked == 0);
     assert(geo->mesh_header != NULL);
+
+    rw_geometry_destroy(geo);
+}
+
+static void
+test_geometry_rejects_bad_indices(void)
+{
+    RwGeometry *geo = rw_geometry_create(3, 1, RW_GEO_POSITIONS);
+
+    assert(geo);
+    geo->triangles[0].v[0] = 0;
+    geo->triangles[0].v[1] = 1;
+    geo->triangles[0].v[2] = 3;
+    geo->triangles[0].mat_id = 0;
+    assert(!rw_geometry_build_meshes(geo));
+    assert(geo->mesh_header == NULL);
 
     rw_geometry_destroy(geo);
 }
@@ -91,6 +109,7 @@ main(void)
     assert(rw_engine_init(NULL));
     test_geometry_create_defaults();
     test_geometry_build_meshes();
+    test_geometry_rejects_bad_indices();
     test_geometry_bounding_sphere();
     rw_engine_term();
     return 0;

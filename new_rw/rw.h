@@ -202,6 +202,7 @@ typedef struct {
     uint32_t flags;
     uint16_t num_meshes;
     uint32_t total_indices;
+    uint32_t _pad0;
 } RwMeshHeader;
 
 typedef struct {
@@ -518,6 +519,11 @@ rw_matrix_multiply(RwMatrix *out, const RwMatrix *a, const RwMatrix *b)
     out->pos.x = a->pos.x*b->right.x + a->pos.y*b->up.x + a->pos.z*b->at.x + b->pos.x;
     out->pos.y = a->pos.x*b->right.y + a->pos.y*b->up.y + a->pos.z*b->at.y + b->pos.y;
     out->pos.z = a->pos.x*b->right.z + a->pos.y*b->up.z + a->pos.z*b->at.z + b->pos.z;
+
+    out->_pad0 = 0;
+    out->_pad1 = 0;
+    out->_pad2 = 0;
+    out->_pad3 = 0;
 }
 
 static inline int
@@ -552,6 +558,11 @@ rw_matrix_invert(RwMatrix *out, const RwMatrix *in)
     out->pos.x = -(in->pos.x*out->right.x + in->pos.y*out->up.x + in->pos.z*out->at.x);
     out->pos.y = -(in->pos.x*out->right.y + in->pos.y*out->up.y + in->pos.z*out->at.y);
     out->pos.z = -(in->pos.x*out->right.z + in->pos.y*out->up.z + in->pos.z*out->at.z);
+
+    out->_pad0 = 0;
+    out->_pad1 = 0;
+    out->_pad2 = 0;
+    out->_pad3 = 0;
 
     return 1;
 }
@@ -588,7 +599,15 @@ rw_matrix_rotate(RwMatrix *m, RwV3d axis, float angle, RwCombineOp op)
     float c, s, t;
     float xx, yy, zz, xy, yz, zx;
     float radians = angle * (3.14159265358979323846f / 180.0f);
-    RwV3d n = rw_v3d_normalize(axis);
+    float axis_len = rw_v3d_length(axis);
+    RwV3d n;
+
+    if (axis_len == 0.0f) {
+        if (op == RW_COMBINE_REPLACE)
+            rw_matrix_set_identity(m);
+        return;
+    }
+    n = rw_v3d_scale(axis, 1.0f / axis_len);
 
     c = cosf(radians);
     s = sinf(radians);
@@ -729,18 +748,35 @@ static inline RwQuat
 rw_quat_slerp(RwQuat a, RwQuat b, float t)
 {
     float c = a.w*b.w + a.x*b.x + a.y*b.y + a.z*b.z;
+    RwQuat r;
+
     if (c < 0.0f) {
         b.w = -b.w; b.x = -b.x; b.y = -b.y; b.z = -b.z;
         c = -c;
     }
-    if (c > 0.99999f)
-        return a;
+    if (c > 1.0f)
+        c = 1.0f;
+    if (c > 0.99999f) {
+        float len;
+
+        r.w = a.w + (b.w - a.w) * t;
+        r.x = a.x + (b.x - a.x) * t;
+        r.y = a.y + (b.y - a.y) * t;
+        r.z = a.z + (b.z - a.z) * t;
+        len = sqrtf(r.w*r.w + r.x*r.x + r.y*r.y + r.z*r.z);
+        if (len > 0.0f) {
+            r.w /= len;
+            r.x /= len;
+            r.y /= len;
+            r.z /= len;
+        }
+        return r;
+    }
 
     float phi = acosf(c);
     float sinp = sinf(phi);
     float sa = sinf((1.0f - t) * phi) / sinp;
     float sb = sinf(t * phi) / sinp;
-    RwQuat r;
     r.w = sa*a.w + sb*b.w;
     r.x = sa*a.x + sb*b.x;
     r.y = sa*a.y + sb*b.y;
@@ -770,6 +806,10 @@ rw_quat_to_matrix(RwMatrix *out, RwQuat q)
     out->pos.x = 0.0f;
     out->pos.y = 0.0f;
     out->pos.z = 0.0f;
+    out->_pad0 = 0;
+    out->_pad1 = 0;
+    out->_pad2 = 0;
+    out->_pad3 = 0;
 }
 
 static inline RwQuat

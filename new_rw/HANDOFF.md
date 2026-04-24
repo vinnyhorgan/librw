@@ -1,187 +1,102 @@
-# rw — Phase 7 CPU Animation Started
+# Handoff Prompt For Next LLM
 
-## Project
+You are continuing work in `/home/dvh/Downloads/librw/new_rw` on `rw`, a small C99 RenderWare-like rendering API for a fantasy console. Target backend is OpenGL ES 2.0 with no extensions. The public API is `rw_` prefixed snake_case. Everything outside `new_rw/` is the original C++ librw codebase and is reference only: study algorithms, do not copy code.
 
-`rw` is a C99 reimplementation of a RenderWare-like 3D rendering API for a fantasy console, targeting OpenGL ES 2.0 with no extensions. Lives in `new_rw/`. Everything outside `new_rw/` is the original librw C++ codebase — reference only, port algorithms from it, do not copy code.
+Read these first:
+- `new_rw/PLAN.md` - full architecture/spec and intended implementation order.
+- `new_rw/PROGRESS.md` - current status and changelog.
+- `new_rw/Makefile` - current strict build/test entry point.
 
-Full spec is in `new_rw/PLAN.md` (~1064 lines). Progress tracking in `new_rw/PROGRESS.md`.
+## Current State
 
-## What's Done
+The project has first-party CPU-side runtime code and tests for foundation, frames, materials/textures/rasters, geometry, scene graph/camera/lights, and skin/HAnim animation. GL backend, default pipeline, immediate mode, GL texture upload, and demos are not implemented yet.
 
-**Phase 1 (Foundation) — COMPLETE.** Compiles clean with `gcc -std=c99 -Wall -Wextra -Werror`.
+Implemented first-party source files:
+- `rw.h` - public types, structs, enums, APIs, inline math, intrusive lists.
+- `rw_engine.c` - engine lifecycle, render-state array, allocator wrappers.
+- `rw_frame.c` - frame hierarchy, dirty propagation, LTM sync.
+- `rw_material.c` - materials, textures, texture dictionaries.
+- `rw_raster.c` - CPU rasters/images, `stb_image` bridge, CPU image-to-raster copy.
+- `rw_geometry.c` - geometry allocation, mesh grouping, bounding spheres.
+- `rw_scene.c` - atomics, clumps, worlds, cameras, lights, light enumeration, CPU render dispatch.
+- `rw_skin.c` - skin data allocation and CPU HAnim attach/interpolate/update.
 
-### `new_rw/rw.h` (~980 lines)
-- All primitive types (rw_int8 through rw_bool32)
-- Math types: RwV2d, RwV3d, RwV4d, RwQuat, RwRGBAf, RwRGBA, RwTexCoords
-- RwMatrix (4x3 with pad uint32 per row), RwRawMatrix (4x4 for GPU)
-- Vertex types: RwIm2DVertex, RwIm3DVertex
-- BBox, Sphere, Rect
-- Intrusive linked list: RwLink, RwLinkList with init/add/append/remove + RW_LINK_DATA/RW_FORLIST macros
-- All forward declarations, all enums (LightType, CombineOp, PrimitiveType, Geo flags, Lock flags, RenderState, Cull, Blend, Tex filter/wrap, Camera clear, im3d flags, Frame dirty flags)
-- All core structs: Frame, Triangle, Mesh, MeshHeader, MorphTarget, Geometry, Material, GlRaster, Raster, Image, Texture, TexDict, Atomic, Clump, Camera, Light, WorldLights, World, ObjPipeline, Skin, HAnimNodeInfo, HAnimKeyFrame, HAnimHier, Engine
-- All API function declarations for every module (engine, frame, geometry, material, texture, raster, image, texdict, atomic, clump, world, camera, light, im2d, im3d, skin, hanim)
-- Static inline math:
-  - V3d: add, sub, scale, dot, cross, length, normalize, lerp
-  - Matrix: set_identity, multiply using RenderWare's row-vector/layout convention, invert (general cofactor), translate, rotate (axis-angle), scale — all with CombineOp support
-  - RawMatrix: explicit field-wise multiply and transpose matching RenderWare layout
-  - Quaternion: mult (Hamilton), slerp, to_matrix, from_matrix (trace method, 4 cases)
+Current tests:
+- `tests/test_math.c`
+- `tests/test_frame.c`
+- `tests/test_material.c`
+- `tests/test_geometry.c`
+- `tests/test_scene.c`
+- `tests/test_skin.c`
 
-### `new_rw/rw_engine.c` (~110 lines)
-- State machine: RW_ENGINE_DEAD → INITIALIZED → OPENED → STARTED
-- rw_engine_init: validates state, sets memory funcs (default: malloc/realloc/free), rejects incomplete custom allocator tables
-- rw_engine_open/close: state transitions (device hooks stubbed for later)
-- rw_engine_start/stop: sets default render states, state transitions
-- rw_engine_term: clears engine struct, returns to DEAD
-- rw_set_render_state / rw_get_render_state
-- rw_malloc / rw_realloc / rw_free wrappers through engine function pointers
+Build and verify with:
+```bash
+cd /home/dvh/Downloads/librw/new_rw
+make test
+```
 
-### `new_rw/tests/test_math.c`
-- Regression coverage for RenderWare-layout matrix multiplication
-- Verifies replace-mode translate/scale reset the whole matrix
-- Verifies matrix inverse round-trip against identity
+The last verified run used the checked-in Makefile and passed all current tests with:
+`cc -I. -std=c99 -Wall -Wextra -Werror -pedantic -O2 ... -lm`.
 
-### `new_rw/.gitignore`
-- Ignores local build artifacts (`*.o`, libraries, root-level test executables, build dirs)
-- `new_rw/rw_engine.o` is generated and should remain untracked
+## Important Invariants
 
-## Phase 2 — Frame Hierarchy Complete
+- Keep runtime code C99, not C++.
+- Prefer small direct C functions over abstraction.
+- Keep the runtime library windowing-free; GLFW/glad are for future tests only.
+- Runtime dependency allowed by plan today: `vendor/stb/stb_image.h` for image loading.
+- Matrix layout is RenderWare-style rows: `right`, `up`, `at`, `pos`, each padded to 16 bytes.
+- Matrix multiplication uses row-vector composition. Child LTM is computed as `child->matrix * parent->ltm`.
+- `RwFrame` hierarchy is first-child/next-sibling. Dirty roots are stored in `rw_engine.frame_dirty_list` through `RwFrame.in_dirty`.
+- Intrusive links must be initialized before use and removed before re-linking.
+- `RwGeometry` uses `uint16_t` triangle indices, so geometry creation rejects more than `UINT16_MAX` vertices.
+- `RwMeshHeader` is padded to 16 bytes so the `RwMesh` array stored immediately after it remains pointer-aligned.
+- Current mesh building supports triangle lists only; `RW_GEO_TRISTRIP` intentionally returns failure.
+- `RwClump` owns its current frame. `rw_clump_set_frame` destroys the old owned frame and takes ownership of the new frame.
+- `rw_skin_set_pipeline` is intentionally a no-op until a GL skin pipeline exists.
 
-Implemented `new_rw/rw_frame.c` (~184 lines). Reference: `src/frame.cpp`.
+## Recent Audit Fixes
 
-### Implemented functions:
-- `rw_frame_create` — allocate, zero, identity local/LTM, init root and dirty link
-- `rw_frame_destroy` — detach from parent, remove from dirty list if needed, recursively destroy children, free
-- `rw_frame_add_child` — append to parent's child list, set parent/root pointers, merge dirty roots
-- `rw_frame_remove_child` — unlink from sibling chain, make detached subtree its own root, mark old/new roots dirty
-- `rw_frame_get_ltm` — sync dirty hierarchy immediately and remove root from dirty list before returning `&frame->ltm`
-- `rw_frame_set_matrix` — copy matrix, mark subtree dirty
-- `rw_frame_translate/rotate/scale` — apply transform with `RwCombineOp`, mark dirty
-- `rw_frame_sync_dirty` — drain `rw_engine.frame_dirty_list`, recursively recompute LTMs
+The latest audit added the Makefile and fixed these issues:
+- `rw_geometry_unlock` now clears `geo->locked`.
+- `rw_geometry_build_meshes` now rejects out-of-range material IDs and vertex indices before writing mesh indices.
+- `rw_geometry_create` rejects vertex counts that cannot fit `uint16_t` mesh indices.
+- `rw_matrix_rotate` treats a zero axis as identity for replace and no-op for concat.
+- Matrix-producing helpers now zero padding fields to avoid carrying indeterminate data.
+- `RwMeshHeader` now includes explicit padding so the trailing `RwMesh` array is aligned under UBSan/ASan.
+- `rw_quat_slerp` now clamps dot products above 1 and linearly interpolates/normalizes very close quaternions instead of returning the start pose.
+- `rw_clump_set_frame` now releases the previous owned frame instead of leaking it.
+- Tests were extended to cover these regressions.
 
-### Key algorithms from librw reference:
-- **updateObjects**: When a frame's local matrix changes, mark the hierarchy root with RW_FRAME_HIERARCHYSYNC and add that root to engine's frame_dirty_list if not already present; mark the changed frame with RW_FRAME_SUBTREESYNC.
-- **syncHierarchyLTM**: Recursive — if this frame or an ancestor has SUBTREESYNC, LTM = frame->matrix × parent->ltm using `rw_matrix_multiply(&ltm, &frame->matrix, &parent->ltm)`. Root LTM is its local matrix. Clear flags after update.
+## Best Next Task
 
-### Key details:
-- Frame hierarchy uses first-child/next-sibling tree (not a binary tree)
-- Root frame's LTM = its local matrix (no parent to combine with)
-- Dirty propagation uses the engine's `frame_dirty_list` (intrusive linked list via `in_dirty` link)
-- Frame root pointer should point to the root of the hierarchy
+The best next implementation step is Phase 3/4 GL groundwork:
+- Add `rw_gl.c` with GLES2 state cache, shader compile/link helpers, device init/shutdown hooks, and texture upload support.
+- Add `rw_pipeline.c` default pipeline scaffolding for CPU-to-GPU instance data and mesh rendering.
+- Wire `rw_engine_open/start/stop/close` to GL backend hooks once they exist.
+- Add the first GL-context test only after the backend has enough surface area. Keep GL test link flags separate from the core library.
 
-### Tests
-- `tests/test_math.c` passes before and after Phase 2.
-- `tests/test_frame.c` covers hierarchy creation, required child LTM composition order, `rw_frame_get_ltm` dirty sync, and child detach/new-root behavior.
+Useful librw references from the root codebase:
+- `src/gl/gl3device.cpp` - state/device lifecycle concepts.
+- `src/gl/gl3shader.cpp` - shader compile/link/permutation approach.
+- `src/gl/gl3raster.cpp` - texture upload concepts.
+- `src/gl/gl3pipe.cpp` - geometry instance buffer construction.
+- `src/gl/gl3render.cpp` - default render callback and light upload flow.
+- `src/geometry.cpp`, `src/frame.cpp`, `src/camera.cpp`, `src/world.cpp`, `src/skin.cpp`, `src/hanim.cpp` - CPU algorithms already partially ported.
 
-### Verified commands
-- `gcc -std=c99 -Wall -Wextra -Werror -I. tests/test_math.c rw_engine.c -lm -o test_math && ./test_math`
-- `gcc -std=c99 -Wall -Wextra -Werror -I. tests/test_frame.c rw_engine.c rw_frame.c -lm -o test_frame && ./test_frame`
+## Do Not Do
 
-## Phase 3 Progress
+- Do not copy C++ librw code verbatim.
+- Do not introduce C++ or non-C99 constructs.
+- Do not make the core library depend on GLFW.
+- Do not implement broad compatibility layers unless a concrete shipped data/API need appears.
+- Do not audit or rewrite `vendor/glfw`, `vendor/glad`, or `vendor/stb` unless the task is specifically about third-party code.
 
-Added `new_rw/rw_material.c`, `new_rw/rw_raster.c`, and `new_rw/tests/test_material.c`.
+## Current Known Gaps
 
-Implemented CPU-side resource functions:
-- `rw_material_create/destroy`, `rw_material_set_texture/color/surface`
-- `rw_texture_create/destroy`, `rw_texture_set_filter/addressing`
-- `rw_texdict_create/destroy/add/find`
-- `rw_raster_create/destroy/lock/unlock`
-- `rw_image_load` through `stb_image.h`, forcing RGBA8 output and using the engine memory callbacks
-- `rw_image_destroy`
-- `rw_raster_from_image` as a CPU pixel copy only
-- `tests/test_material.c` writes a tiny uncompressed TGA fixture at runtime and verifies loaded RGBA pixels
-
-Important ownership behavior:
-- Materials start white with ambient/specular/diffuse set to `1.0f` and `ref_count = 1`.
-- `rw_material_set_texture` increments the new texture refcount and destroys/releases the old one.
-- `rw_texture_destroy` decrements refcount, unlinks from its texdict at zero, destroys owned raster, and frees.
-- `rw_texdict_destroy` unlinks and destroys all contained textures.
-- Texture filter/addressing is packed as `VVVVUUUU FFFFFFFF`, matching the planned struct field.
-
-Still pending in Phase 3:
-- `rw_raster_from_image` does not upload GL texture data yet.
-- `rw_gl.c` state cache, shader compilation, shader permutations, and GL lifecycle hooks are not started.
-
-Verified commands:
-- `gcc -std=c99 -Wall -Wextra -Werror -I. tests/test_math.c rw_engine.c -lm -o test_math && ./test_math`
-- `gcc -std=c99 -Wall -Wextra -Werror -I. tests/test_frame.c rw_engine.c rw_frame.c -lm -o test_frame && ./test_frame`
-- `gcc -std=c99 -Wall -Wextra -Werror -I. tests/test_material.c rw_engine.c rw_material.c rw_raster.c -lm -o test_material && ./test_material`
-
-## Phase 4 Progress
-
-Added `new_rw/rw_geometry.c` and `new_rw/tests/test_geometry.c`.
-
-Implemented CPU-side geometry functions:
-- `rw_geometry_create/destroy`
-- `rw_geometry_lock/unlock`
-- `rw_geometry_build_meshes` for triangle lists grouped by `mat_id`
-- `rw_geometry_calc_bounding_sphere`
-
-Important behavior:
-- Geometries start with `ref_count = 1` and one default white material so `mat_id = 0` triangles are immediately valid.
-- Vertex arrays are allocated based on geometry flags: positions always, normals for `RW_GEO_NORMALS`, colors for `RW_GEO_PRELIT`, texcoords for `RW_GEO_TEXTURED`.
-- Mesh headers are a single allocation containing `RwMeshHeader`, `RwMesh[num_materials]`, and contiguous `uint16_t` indices.
-- `rw_geometry_lock(..., RW_LOCK_POLYGONS)` frees the existing mesh header; `rw_geometry_unlock` rebuilds it when absent.
-- Bounding sphere follows the librw reference: compute AABB min/max, center at `(min + max) * 0.5`, radius as distance from center to max.
-
-Verified commands:
-- `gcc -std=c99 -Wall -Wextra -Werror -I. tests/test_math.c rw_engine.c -lm -o test_math && ./test_math`
-- `gcc -std=c99 -Wall -Wextra -Werror -I. tests/test_frame.c rw_engine.c rw_frame.c -lm -o test_frame && ./test_frame`
-- `gcc -std=c99 -Wall -Wextra -Werror -I. tests/test_material.c rw_engine.c rw_material.c rw_raster.c -lm -o test_material && ./test_material`
-- `gcc -std=c99 -Wall -Wextra -Werror -I. tests/test_geometry.c rw_engine.c rw_material.c rw_raster.c rw_geometry.c -lm -o test_geometry && ./test_geometry`
-
-## Phase 5 Progress
-
-Added `new_rw/rw_scene.c` and `new_rw/tests/test_scene.c`.
-
-Implemented CPU-side scene functions:
-- `rw_atomic_create/destroy/set_geometry/set_frame/set_pipeline/set_render_cb/render`
-- `rw_clump_create/destroy/get_frame/set_frame/add_atomic/remove_atomic/add_light/render`
-- `rw_world_create/destroy/add_clump/remove_clump/add_light/remove_light/render/enumerate_lights`
-- `rw_camera_create/destroy/set_frame/begin_update/end_update/clear/set_fov/set_view_window/set_near_far/frustum_test_sphere`
-- `rw_light_create/destroy/set_color/set_radius/set_frame`
-
-Important behavior:
-- Atomics retain assigned geometry with `ref_count` and release it on replacement/destruction.
-- World render iterates clumps, clumps iterate atomics, and atomics invoke render callbacks before pipeline render callbacks.
-- World light enumeration accumulates ambient lights, collects directional lights, and includes point/spot lights whose radius intersects an atomic bounding sphere.
-- Camera begin update computes view matrix by inverting the attached frame LTM, updates a GLES-style projection raw matrix, and extracts six normalized frustum planes in world space.
-- Frustum sphere testing uses the stored camera planes and supports moved camera frames.
-- `RwLight` now has an `in_clump` link so clump-local light lists do not conflict with world light lists.
-
-Verified commands:
-- `gcc -std=c99 -Wall -Wextra -Werror -I. tests/test_scene.c rw_engine.c rw_frame.c rw_material.c rw_raster.c rw_geometry.c rw_scene.c -lm -o test_scene && ./test_scene`
-
-## What's Next: Phase 4 GL Prerequisites
-
-Next useful progress is GL-facing Phase 4/3 work: `rw_pipeline.c` instance-data scaffolding plus `rw_gl.c` state/shader/device hooks. Full triangle rendering still requires GL backend state/shaders and pipeline render paths.
-
-## Phase 7 CPU Progress
-
-Added `new_rw/rw_skin.c` and `new_rw/tests/test_skin.c`.
-
-Implemented CPU-side animation functions:
-- `rw_skin_create/destroy/set_data`
-- `rw_hanim_create/destroy/attach/interpolate/update_matrices`
-
-Important behavior:
-- Skins allocate inverse bind matrices as `num_bones * 16` floats and per-vertex bone indices/weights as `num_verts * num_weights` entries.
-- Added `RW_HANIM_PUSH` and `RW_HANIM_POP` flags in `rw.h` for stack-based hierarchy traversal.
-- `rw_hanim_interpolate` treats `anim_data` as frame-major packed keyframes: `num_frames * num_nodes`.
-- `rw_hanim_update_matrices` builds local matrices from interpolated quaternion + translation, accumulates globals through the PUSH/POP stack, writes `h->matrices[index]`, and mirrors local transforms onto attached frames.
-- `rw_skin_set_pipeline` remains a no-op until the GL skin pipeline exists.
-
-Verified commands:
-- `gcc -std=c99 -Wall -Wextra -Werror -I. tests/test_skin.c rw_engine.c rw_frame.c rw_skin.c -lm -o test_skin && ./test_skin`
-
-## Build Notes
-- `gcc -std=c99 -Wall -Wextra -Werror`
-- Include path: `-Ivendor` (for glad, stb)
-- GL loader: `vendor/glad/include/glad/gles2.h` (header-only GLES 2.0 loader)
-- Tests will need GLFW for GL context (not needed for frame.c itself, only for test_frame)
-
-## Architecture Reminders
-- All functions prefixed `rw_`, snake_case
-- No comments in code unless asked
-- C99 only, no C++ features
-- Matrix layout: right, up, at, pos vectors (NOT x/y/z rows)
-- Follow existing code style in rw.h and rw_engine.c
+- No `rw_gl.c`, `rw_pipeline.c`, or `rw_render.c` yet.
+- `rw_raster_from_image` is CPU copy only; no GL texture upload.
+- `rw_camera_clear` is a stub until GL clear support exists.
+- `rw_atomic_render` dispatches callbacks/pipeline only; no default pipeline exists.
+- No `test_clear`, `test_triangle`, `test_im2d`, or `test_gta` yet.
+- `RwHAnimHier.anim_data` is borrowed external storage; destroy does not free it.
+- Vendor files are third-party dependencies and were not part of the first-party audit.

@@ -55,7 +55,7 @@ rw_geometry_create(int num_verts, int num_tris, uint32_t flags)
 {
     RwGeometry *geo;
 
-    if (num_verts < 0 || num_tris < 0)
+    if (num_verts < 0 || num_verts > UINT16_MAX || num_tris < 0)
         return NULL;
 
     geo = rw_malloc(sizeof(*geo));
@@ -131,6 +131,7 @@ rw_geometry_unlock(RwGeometry *geo)
 
     if (!geo->mesh_header)
         rw_geometry_build_meshes(geo);
+    geo->locked = 0;
 }
 
 int
@@ -155,6 +156,12 @@ rw_geometry_build_meshes(RwGeometry *geo)
 
     for (i = 0; i < geo->num_triangles; i++) {
         if (geo->triangles[i].mat_id >= (uint16_t)geo->num_materials) {
+            rw_free(counts);
+            return 0;
+        }
+        if (geo->triangles[i].v[0] >= (uint16_t)geo->num_vertices ||
+            geo->triangles[i].v[1] >= (uint16_t)geo->num_vertices ||
+            geo->triangles[i].v[2] >= (uint16_t)geo->num_vertices) {
             rw_free(counts);
             return 0;
         }

@@ -1,6 +1,6 @@
 # rw — Implementation Progress
 
-## Status: Phase 7 CPU ANIMATION PROGRESS — math/frame/material/geometry/scene/skin tests pass
+## Status: Phase 7 CPU ANIMATION PROGRESS - strict Makefile build and CPU tests pass
 
 ## Phase Overview
 
@@ -13,7 +13,7 @@
 | 5. Scene graph | `rw_scene.c` | In progress | CPU atomic/clump/world/light/camera basics plus frustum planes done; GL clear/render integration pending |
 | 6. Immediate mode | `rw_render.c` | Not started | im2d + im3d |
 | 7. Animation | `rw_skin.c` | In progress | CPU skin allocation, HAnim attach/interpolate/update done; GL skin pipeline pending |
-| 8. Polish | `test_gta.c`, Makefile | Not started | Integration demo |
+| 8. Polish | `test_gta.c`, Makefile | In progress | Strict Makefile added; integration demo not started |
 
 ## Phase 1: Foundation
 
@@ -44,7 +44,7 @@
 - [x] Memory wrappers (rw_malloc, rw_free, etc.)
 
 ### Tests
-- [x] test_math.c — foundation matrix regression tests
+- [x] test_math.c — foundation matrix/quaternion regression tests
 - [ ] test_clear.c — engine lifecycle + screen clear
 
 ## Phase 2: Frame Hierarchy
@@ -169,7 +169,7 @@
 
 ## Phase 8: Polish
 
-- [ ] Makefile (library + all tests)
+- [x] Makefile (static library + all current CPU tests)
 - [ ] test_gta.c — mini GTA-like demo
 - [ ] Final line count verification (~4,000 target)
 - [ ] Code review pass (consistency, no leaks, no GL errors)
@@ -187,3 +187,4 @@
 | 2026-04-24 | 5 | Added CPU-side `rw_scene.c` and `tests/test_scene.c`; atomics/clumps/world render dispatch, light enumeration, camera update, and simple frustum sphere testing pass |
 | 2026-04-24 | 5 | Added camera frustum plane extraction and switched sphere culling to stored planes; extended scene test coverage for extracted planes and moved cameras |
 | 2026-04-24 | 7 | Added CPU-side `rw_skin.c` and `tests/test_skin.c`; skin allocation, HAnim node attachment, keyframe interpolation, and PUSH/POP matrix updates pass |
+| 2026-04-24 | Audit/Build | Added `new_rw/Makefile` with strict C99 static-library/test build; fixed zero-axis rotation, near-linear quaternion slerp, matrix/header padding, geometry lock clearing, mesh index validation, and clump frame replacement ownership; all current CPU tests pass through `make test` and sanitized test builds |
