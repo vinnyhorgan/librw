@@ -29,7 +29,7 @@ LIB_DEPS := $(LIB_OBJS:.o=.d)
 TEST_NAMES := math frame material geometry scene skin
 TEST_BINS := $(TEST_NAMES:%=$(BIN_DIR)/test_%)
 
-GL_TEST_NAMES := render im2d gta
+GL_TEST_NAMES := render im2d im3d gta
 GL_TEST_BINS := $(GL_TEST_NAMES:%=$(BIN_DIR)/test_%)
 GL_TEST_LDLIBS := -lglfw -ldl
 

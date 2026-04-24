@@ -1,6 +1,6 @@
 # rw — Implementation Progress
 
-## Status: All core phases complete — GTA-like demo added, all tests pass
+## Status: All core phases complete — im3d focused test added, all tests pass
 
 ## Phase Overview
 
@@ -13,7 +13,7 @@
 | 5. Scene graph | `rw_scene.c` | Done | CPU atomic/clump/world/light/camera, frustum planes, glClear wired |
 | 6. Immediate mode | `rw_render.c` | Done | im2d + im3d with dynamic VBOs |
 | 7. Animation | `rw_skin.c` | Done | CPU skin + HAnim, skin pipeline wired |
-| 8. Polish | `test_render.c`, `test_im2d.c`, `test_gta.c`, Makefile | In progress | GL render tests and GTA-like integration demo added |
+| 8. Polish | `test_render.c`, `test_im2d.c`, `test_im3d.c`, `test_gta.c`, Makefile | In progress | GL render tests, im3d coverage, and GTA-like integration demo added |
 
 **Total: ~4,253 lines of C in library code (target ~4,000).**
 
@@ -160,6 +160,7 @@
 
 ### Tests
 - [x] test_im2d.c — primitive and indexed 2D quads render in an offscreen GLES2 context
+- [x] test_im3d.c — unlit primitive and ambient-lit indexed 3D immediate geometry render in an offscreen GLES2 context
 - [x] test_render.c — GL texture sampler coverage for POT mipmap generation and NPOT fallback
 
 ## Phase 7: Animation
@@ -183,6 +184,7 @@
 ## Phase 8: Polish
 
 - [x] Makefile (static library + all current CPU tests)
+- [x] test_im3d.c — focused immediate-mode 3D render coverage
 - [x] test_gta.c — mini GTA-like demo
 - [ ] Final line count verification (~4,000 target)
 - [ ] Code review pass (consistency, no leaks, no GL errors)
@@ -209,3 +211,4 @@
 | 2026-04-24 | im2d GL | Added `tests/test_im2d.c` for offscreen GLES2 primitive and indexed im2d quad rendering; generalized Makefile GL tests; strict `make test` passes |
 | 2026-04-24 | Texture GL | Added GLES2 `glGenerateMipmap` support for mipmapped texture filters on valid power-of-two rasters, NPOT/invalid fallback to non-mip filters, and GL sampler coverage in `test_render.c`; strict `make test` passes |
 | 2026-04-24 | Demo/Test | Added `tests/test_gta.c`, a GLFW offscreen GTA-like integration demo covering a small world, ambient/point lights, fog state, skinned character rendering, and im2d HUD overlay; added it to `GL_TEST_NAMES`; strict `make test` passes |
+| 2026-04-24 | im3d GL | Added `tests/test_im3d.c` covering unlit primitive and ambient-lit indexed im3d rendering in an offscreen GLFW GLES2 context; added it to `GL_TEST_NAMES`; strict `make test` passes |

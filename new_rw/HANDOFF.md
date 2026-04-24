@@ -15,7 +15,7 @@ Everything outside `new_rw/` is the original C++ librw codebase and is reference
 
 ## Verified State
 
-The runtime has complete CPU-side core systems, a GLES2 backend, default and skin pipelines, immediate-mode infrastructure, GLES2 auto-mipmapping for valid power-of-two rasters, and a GTA-like offscreen integration demo. The current suite passes with strict C99 flags and GLFW offscreen GLES2 render tests.
+The runtime has complete CPU-side core systems, a GLES2 backend, default and skin pipelines, immediate-mode infrastructure, GLES2 auto-mipmapping for valid power-of-two rasters, focused im2d/im3d render tests, and a GTA-like offscreen integration demo. The current suite passes with strict C99 flags and GLFW offscreen GLES2 render tests.
 
 Verify with:
 
@@ -33,6 +33,7 @@ The last verified run, from `/home/dvh/Downloads/librw/new_rw`, passed all tests
 - `tests/test_skin.c`
 - `tests/test_render.c`
 - `tests/test_im2d.c`
+- `tests/test_im3d.c`
 - `tests/test_gta.c`
 
 The strict build uses:
@@ -45,9 +46,9 @@ cc -I. -Ivendor/glad/include -Ivendor/glfw/include -std=c99 -Wall -Wextra -Werro
 
 If this handoff is used before the current changes are committed, expect exactly these intentional changes:
 
-- `new_rw/tests/test_gta.c` - new offscreen GLES2 GTA-like integration demo.
-- `new_rw/Makefile` - adds `gta` to `GL_TEST_NAMES` so `make test` builds and runs it.
-- `new_rw/PROGRESS.md` - marks the GTA-like demo complete and records the passing verification.
+- `new_rw/tests/test_im3d.c` - new offscreen GLES2 im3d render test.
+- `new_rw/Makefile` - adds `im3d` to `GL_TEST_NAMES` so `make test` builds and runs it.
+- `new_rw/PROGRESS.md` - records the im3d render coverage and passing verification.
 - `new_rw/HANDOFF.md` - this updated next-session prompt.
 
 Current expected repository-level status before committing:
@@ -56,7 +57,7 @@ Current expected repository-level status before committing:
  M new_rw/HANDOFF.md
  M new_rw/Makefile
  M new_rw/PROGRESS.md
-?? new_rw/tests/test_gta.c
+?? new_rw/tests/test_im3d.c
 ```
 
 ## Current Implementation
@@ -86,8 +87,9 @@ Do not redo these unless a regression is found.
 - `tests/test_render.c` renders default and skinned triangles in an offscreen GLFW GLES2 context and checks the center pixel.
 - `tests/test_render.c` covers mipmapped texture sampler setup: valid power-of-two rasters generate mipmaps, while NPOT rasters fall back to non-mip filters without GL errors.
 - `tests/test_im2d.c` renders primitive and indexed im2d quads in an offscreen GLFW GLES2 context and checks the center pixel.
+- `tests/test_im3d.c` renders unlit primitive and ambient-lit indexed im3d geometry in an offscreen GLFW GLES2 context and checks center pixels with no GL errors.
 - `tests/test_gta.c` renders a small GTA-like scene in an offscreen GLFW GLES2 context and checks scene/HUD pixels with no GL errors.
-- `Makefile` groups GLFW-dependent render tests through `GL_TEST_NAMES := render im2d gta`.
+- `Makefile` groups GLFW-dependent render tests through `GL_TEST_NAMES := render im2d im3d gta`.
 
 ## `tests/test_gta.c` Details
 
@@ -152,18 +154,18 @@ Ownership notes in the test:
 ## Best Next Tasks
 
 1. **Polish/review pass**
-   Check for leaks, GL errors, render-state inconsistencies, line-count drift, and missing coverage around alpha test, alpha blend, im3d rendering, camera clear behavior, fog behavior, and texture filters.
+   Check for leaks, GL errors, render-state inconsistencies, line-count drift, and missing coverage around alpha test, alpha blend, camera clear behavior, fog behavior, and texture filters.
 
 2. **Texture upload on raster creation/copy**
    `rw_raster_from_image()` currently performs CPU copy only. Texture upload happens lazily on first render. If adding eager upload, only do it when a GL context/backend is available; CPU-only tests must not require GL. Preserve lazy upload as the safe fallback.
 
 3. **Optional focused tests**
-   Consider small tests for alpha test/discard, alpha blending, im3d lit/unlit rendering, and `rw_camera_clear()` pixel behavior. Keep GLFW confined to tests.
+   Consider small tests for alpha test/discard, alpha blending, and `rw_camera_clear()` pixel behavior. Keep GLFW confined to tests.
 
 ## Current Known Gaps
 
 - `rw_raster_from_image()` does CPU copy only; GL upload happens lazily in the render loop.
-- Alpha test, alpha blend, im3d rendering, and camera clear behavior do not yet have focused GL pixel tests.
+- Alpha test, alpha blend, and camera clear behavior do not yet have focused GL pixel tests.
 - Final line count target is approximate and currently over the original estimate.
 
 ## Do Not Do
