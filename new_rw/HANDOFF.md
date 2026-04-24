@@ -10,7 +10,7 @@ Full spec is in `new_rw/PLAN.md` (~1064 lines). Progress tracking in `new_rw/PRO
 
 **Phase 1 (Foundation) — COMPLETE.** Compiles clean with `gcc -std=c99 -Wall -Wextra -Werror`.
 
-### `new_rw/rw.h` (~460 lines)
+### `new_rw/rw.h` (~980 lines)
 - All primitive types (rw_int8 through rw_bool32)
 - Math types: RwV2d, RwV3d, RwV4d, RwQuat, RwRGBAf, RwRGBA, RwTexCoords
 - RwMatrix (4x3 with pad uint32 per row), RwRawMatrix (4x4 for GPU)
@@ -22,18 +22,27 @@ Full spec is in `new_rw/PLAN.md` (~1064 lines). Progress tracking in `new_rw/PRO
 - All API function declarations for every module (engine, frame, geometry, material, texture, raster, image, texdict, atomic, clump, world, camera, light, im2d, im3d, skin, hanim)
 - Static inline math:
   - V3d: add, sub, scale, dot, cross, length, normalize, lerp
-  - Matrix: set_identity, multiply (3x3+pos), invert (general cofactor), translate, rotate (axis-angle), scale — all with CombineOp support
-  - RawMatrix: multiply (full 4x4), transpose
+  - Matrix: set_identity, multiply using RenderWare's row-vector/layout convention, invert (general cofactor), translate, rotate (axis-angle), scale — all with CombineOp support
+  - RawMatrix: explicit field-wise multiply and transpose matching RenderWare layout
   - Quaternion: mult (Hamilton), slerp, to_matrix, from_matrix (trace method, 4 cases)
 
 ### `new_rw/rw_engine.c` (~110 lines)
 - State machine: RW_ENGINE_DEAD → INITIALIZED → OPENED → STARTED
-- rw_engine_init: validates state, sets memory funcs (default: malloc/realloc/free)
+- rw_engine_init: validates state, sets memory funcs (default: malloc/realloc/free), rejects incomplete custom allocator tables
 - rw_engine_open/close: state transitions (device hooks stubbed for later)
 - rw_engine_start/stop: sets default render states, state transitions
 - rw_engine_term: clears engine struct, returns to DEAD
 - rw_set_render_state / rw_get_render_state
 - rw_malloc / rw_realloc / rw_free wrappers through engine function pointers
+
+### `new_rw/tests/test_math.c`
+- Regression coverage for RenderWare-layout matrix multiplication
+- Verifies replace-mode translate/scale reset the whole matrix
+- Verifies matrix inverse round-trip against identity
+
+### `new_rw/.gitignore`
+- Ignores local build artifacts (`*.o`, libraries, root-level test executables, build dirs)
+- `new_rw/rw_engine.o` is generated and should remain untracked
 
 ## What's Next: Phase 2 — Frame Hierarchy
 
@@ -50,8 +59,8 @@ Implement `new_rw/rw_frame.c` (~180 lines). Reference: `src/frame.cpp`.
 - `rw_frame_sync_dirty` — iterate frame_dirty_list, recursively recompute LTM for dirty frames
 
 ### Key algorithms from librw reference:
-- **updateObjects**: When a frame's local matrix changes, mark it and all descendants with RW_FRAME_SUBTREESYNC, add to engine's frame_dirty_list
-- **syncHierarchyLTM**: Recursive — if frame has SUBTREESYNC flag, LTM = parent->ltm × frame->local_matrix. Clear flag after update. Propagate to children.
+- **updateObjects**: When a frame's local matrix changes, mark the hierarchy root with RW_FRAME_HIERARCHYSYNC and add that root to engine's frame_dirty_list if not already present; mark the changed frame with RW_FRAME_SUBTREESYNC.
+- **syncHierarchyLTM**: Recursive — if this frame or an ancestor has SUBTREESYNC, LTM = frame->matrix × parent->ltm using `rw_matrix_multiply(&ltm, &frame->matrix, &parent->ltm)`. Root LTM is its local matrix. Clear flags after update.
 
 ### Key details:
 - Frame hierarchy uses first-child/next-sibling tree (not a binary tree)

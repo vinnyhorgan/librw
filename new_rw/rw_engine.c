@@ -31,6 +31,8 @@ rw_engine_init(RwMemoryFuncs *memfuncs)
         return 0;
 
     if (memfuncs) {
+        if (!memfuncs->malloc || !memfuncs->realloc || !memfuncs->free)
+            return 0;
         rw_engine.malloc  = memfuncs->malloc;
         rw_engine.realloc = memfuncs->realloc;
         rw_engine.free    = memfuncs->free;

@@ -1,12 +1,12 @@
 # rw — Implementation Progress
 
-## Status: Phase 1 IN PROGRESS
+## Status: Phase 1 FOUNDATION COMPLETE — tests pending
 
 ## Phase Overview
 
 | Phase | Files | Status | Notes |
 |---|---|---|---|
-| 1. Foundation | `rw.h`, `rw_engine.c` | Done | Types, math, engine lifecycle — compiles clean |
+| 1. Foundation | `rw.h`, `rw_engine.c` | Done | Types, math, engine lifecycle — strict C99 syntax check passes |
 | 2. Frame hierarchy | `rw_frame.c` | Not started | Transform tree, dirty propagation |
 | 3. GL backend core | `rw_gl.c` (partial), `rw_raster.c`, `rw_material.c` | Not started | Shaders, state cache, textures |
 | 4. Geometry + Pipeline | `rw_geometry.c`, `rw_pipeline.c` | Not started | Mesh building, GPU instancing, render |
@@ -30,12 +30,12 @@
 - [x] Core structs (Frame, Geometry, Material, Raster, Image, Texture, TexDict, Atomic, Clump, Camera, Light, World, Pipeline, Skin, HAnimHier)
 - [x] Engine global struct
 - [x] All API function declarations
-- [x] Static inline math (v3d ops, matrix ops, quaternion ops)
+- [x] Static inline math (v3d ops, RenderWare-layout matrix ops, quaternion ops)
 
 ### rw_engine.c
-- [x] rw_engine_init (memory setup)
-- [x] rw_engine_open (device init)
-- [x] rw_engine_start (shader compile, state init)
+- [x] rw_engine_init (memory setup, validates custom allocator table)
+- [x] rw_engine_open (lifecycle transition; GL device hooks come later)
+- [x] rw_engine_start (default render-state setup; shader compile comes with GL backend)
 - [x] rw_engine_stop
 - [x] rw_engine_close
 - [x] rw_engine_term
@@ -44,7 +44,7 @@
 - [x] Memory wrappers (rw_malloc, rw_free, etc.)
 
 ### Tests
-- [ ] test_math.c — vector/matrix/quaternion unit tests
+- [x] test_math.c — foundation matrix regression tests
 - [ ] test_clear.c — engine lifecycle + screen clear
 
 ## Phase 2: Frame Hierarchy
@@ -177,3 +177,4 @@
 | Date | Phase | What Changed |
 |---|---|---|
 | 2026-04-23 | 1 | rw.h (~460 lines), rw_engine.c (~110 lines) — clean compile with -Wall -Wextra -Werror |
+| 2026-04-24 | 1 | Corrected matrix/raw-matrix math to match RenderWare layout, validated custom memory callbacks, added `new_rw/.gitignore`, removed generated object from tracking, and added `tests/test_math.c` |

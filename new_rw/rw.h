@@ -170,14 +170,6 @@ enum {
     RW_FRAME_HIERARCHYSYNC = 0x02,
 };
 
-enum {
-    RW_MATFX_NONE,
-    RW_MATFX_DUAL,
-    RW_MATFX_ENV,
-    RW_MATFX_BUMPENV,
-    RW_MATFX_NUMEFFECTS,
-};
-
 struct RwFrame {
     uint8_t type, subtype, flags, priv_flags;
     RwMatrix matrix;
@@ -505,21 +497,21 @@ rw_matrix_set_identity(RwMatrix *m)
 static inline void
 rw_matrix_multiply(RwMatrix *out, const RwMatrix *a, const RwMatrix *b)
 {
-    out->right.x = a->right.x*b->right.x + a->up.x*b->right.y + a->at.x*b->right.z;
-    out->right.y = a->right.y*b->right.x + a->up.y*b->right.y + a->at.y*b->right.z;
-    out->right.z = a->right.z*b->right.x + a->up.z*b->right.y + a->at.z*b->right.z;
+    out->right.x = a->right.x*b->right.x + a->right.y*b->up.x + a->right.z*b->at.x;
+    out->right.y = a->right.x*b->right.y + a->right.y*b->up.y + a->right.z*b->at.y;
+    out->right.z = a->right.x*b->right.z + a->right.y*b->up.z + a->right.z*b->at.z;
 
-    out->up.x = a->right.x*b->up.x + a->up.x*b->up.y + a->at.x*b->up.z;
-    out->up.y = a->right.y*b->up.x + a->up.y*b->up.y + a->at.y*b->up.z;
-    out->up.z = a->right.z*b->up.x + a->up.z*b->up.y + a->at.z*b->up.z;
+    out->up.x = a->up.x*b->right.x + a->up.y*b->up.x + a->up.z*b->at.x;
+    out->up.y = a->up.x*b->right.y + a->up.y*b->up.y + a->up.z*b->at.y;
+    out->up.z = a->up.x*b->right.z + a->up.y*b->up.z + a->up.z*b->at.z;
 
-    out->at.x = a->right.x*b->at.x + a->up.x*b->at.y + a->at.x*b->at.z;
-    out->at.y = a->right.y*b->at.x + a->up.y*b->at.y + a->at.y*b->at.z;
-    out->at.z = a->right.z*b->at.x + a->up.z*b->at.y + a->at.z*b->at.z;
+    out->at.x = a->at.x*b->right.x + a->at.y*b->up.x + a->at.z*b->at.x;
+    out->at.y = a->at.x*b->right.y + a->at.y*b->up.y + a->at.z*b->at.y;
+    out->at.z = a->at.x*b->right.z + a->at.y*b->up.z + a->at.z*b->at.z;
 
-    out->pos.x = a->right.x*b->pos.x + a->up.x*b->pos.y + a->at.x*b->pos.z + a->pos.x;
-    out->pos.y = a->right.y*b->pos.x + a->up.y*b->pos.y + a->at.y*b->pos.z + a->pos.y;
-    out->pos.z = a->right.z*b->pos.x + a->up.z*b->pos.y + a->at.z*b->pos.z + a->pos.z;
+    out->pos.x = a->pos.x*b->right.x + a->pos.y*b->up.x + a->pos.z*b->at.x + b->pos.x;
+    out->pos.y = a->pos.x*b->right.y + a->pos.y*b->up.y + a->pos.z*b->at.y + b->pos.y;
+    out->pos.z = a->pos.x*b->right.z + a->pos.y*b->up.z + a->pos.z*b->at.z + b->pos.z;
 }
 
 static inline int
@@ -566,7 +558,7 @@ rw_matrix_translate(RwMatrix *m, RwV3d v, RwCombineOp op)
     tmp.pos = v;
     switch (op) {
     case RW_COMBINE_REPLACE:
-        m->pos = v;
+        *m = tmp;
         break;
     case RW_COMBINE_PRECONCAT: {
         RwMatrix t;
@@ -640,9 +632,7 @@ rw_matrix_scale(RwMatrix *m, RwV3d s, RwCombineOp op)
 
     switch (op) {
     case RW_COMBINE_REPLACE:
-        m->right.x = s.x; m->right.y = 0;  m->right.z = 0;
-        m->up.x = 0;  m->up.y = s.y; m->up.z = 0;
-        m->at.x = 0;  m->at.y = 0;  m->at.z = s.z;
+        *m = tmp;
         break;
     case RW_COMBINE_PRECONCAT: {
         RwMatrix t;
@@ -671,30 +661,51 @@ rw_matrix_to_raw(RwRawMatrix *out, const RwMatrix *in)
 static inline void
 rw_raw_matrix_multiply(RwRawMatrix *out, const RwRawMatrix *a, const RwRawMatrix *b)
 {
-    float *m1 = (float*)a, *m2 = (float*)b;
-    float *o = (float*)out;
-    int i, j;
-    for (i = 0; i < 4; i++) {
-        for (j = 0; j < 4; j++) {
-            o[i*4+j] =
-                m1[i*4+0]*m2[0*4+j] +
-                m1[i*4+1]*m2[1*4+j] +
-                m1[i*4+2]*m2[2*4+j] +
-                m1[i*4+3]*m2[3*4+j];
-        }
-    }
+    out->right.x = a->right.x*b->right.x + a->right.y*b->up.x + a->right.z*b->at.x + a->rightw*b->pos.x;
+    out->right.y = a->right.x*b->right.y + a->right.y*b->up.y + a->right.z*b->at.y + a->rightw*b->pos.y;
+    out->right.z = a->right.x*b->right.z + a->right.y*b->up.z + a->right.z*b->at.z + a->rightw*b->pos.z;
+    out->rightw  = a->right.x*b->rightw  + a->right.y*b->upw  + a->right.z*b->atw  + a->rightw*b->posw;
+
+    out->up.x = a->up.x*b->right.x + a->up.y*b->up.x + a->up.z*b->at.x + a->upw*b->pos.x;
+    out->up.y = a->up.x*b->right.y + a->up.y*b->up.y + a->up.z*b->at.y + a->upw*b->pos.y;
+    out->up.z = a->up.x*b->right.z + a->up.y*b->up.z + a->up.z*b->at.z + a->upw*b->pos.z;
+    out->upw  = a->up.x*b->rightw  + a->up.y*b->upw  + a->up.z*b->atw  + a->upw*b->posw;
+
+    out->at.x = a->at.x*b->right.x + a->at.y*b->up.x + a->at.z*b->at.x + a->atw*b->pos.x;
+    out->at.y = a->at.x*b->right.y + a->at.y*b->up.y + a->at.z*b->at.y + a->atw*b->pos.y;
+    out->at.z = a->at.x*b->right.z + a->at.y*b->up.z + a->at.z*b->at.z + a->atw*b->pos.z;
+    out->atw  = a->at.x*b->rightw  + a->at.y*b->upw  + a->at.z*b->atw  + a->atw*b->posw;
+
+    out->pos.x = a->pos.x*b->right.x + a->pos.y*b->up.x + a->pos.z*b->at.x + a->posw*b->pos.x;
+    out->pos.y = a->pos.x*b->right.y + a->pos.y*b->up.y + a->pos.z*b->at.y + a->posw*b->pos.y;
+    out->pos.z = a->pos.x*b->right.z + a->pos.y*b->up.z + a->pos.z*b->at.z + a->posw*b->pos.z;
+    out->posw  = a->pos.x*b->rightw  + a->pos.y*b->upw  + a->pos.z*b->atw  + a->posw*b->posw;
 }
 
 static inline void
 rw_raw_matrix_transpose(RwRawMatrix *out, const RwRawMatrix *in)
 {
     RwRawMatrix tmp = *in;
-    float *o = (float*)out;
-    float *t = (float*)&tmp;
-    int i, j;
-    for (i = 0; i < 4; i++)
-        for (j = 0; j < 4; j++)
-            o[i*4+j] = t[j*4+i];
+
+    out->right.x = tmp.right.x;
+    out->up.x = tmp.right.y;
+    out->at.x = tmp.right.z;
+    out->pos.x = tmp.rightw;
+
+    out->right.y = tmp.up.x;
+    out->up.y = tmp.up.y;
+    out->at.y = tmp.up.z;
+    out->pos.y = tmp.upw;
+
+    out->right.z = tmp.at.x;
+    out->up.z = tmp.at.y;
+    out->at.z = tmp.at.z;
+    out->pos.z = tmp.atw;
+
+    out->rightw = tmp.pos.x;
+    out->upw = tmp.pos.y;
+    out->atw = tmp.pos.z;
+    out->posw = tmp.posw;
 }
 
 static inline RwQuat
