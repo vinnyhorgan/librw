@@ -6,16 +6,16 @@ Everything outside `new_rw/` is the original C++ librw codebase and is reference
 
 ## First Actions
 
-1. Work from `/home/dvh/Downloads/librw/new_rw`.
-2. Read `PLAN.md` for architecture, constraints, API shape, and intended implementation order.
-3. Read `PROGRESS.md` for implementation status and changelog.
-4. Read `Makefile` before running builds; it is the strict build/test entry point.
-5. Run `git status --short` from `/home/dvh/Downloads/librw` before editing. The tree may contain uncommitted work from a previous agent or the user. Do not revert or overwrite unrelated changes.
-6. Inspect only the source files needed for the task you choose.
+1. Work from `/home/dvh/Downloads/librw/new_rw` unless running repository-level git commands.
+2. Run `git status --short` from `/home/dvh/Downloads/librw` before editing. The tree may contain uncommitted work from a previous agent or the user. Do not revert or overwrite unrelated changes.
+3. Read `PLAN.md` for architecture, constraints, API shape, and intended implementation order.
+4. Read `PROGRESS.md` for implementation status and changelog.
+5. Read `Makefile` before running builds; it is the strict build/test entry point.
+6. Inspect only the source files needed for the task you choose. Keep context small and avoid vendor code unless necessary.
 
 ## Verified State
 
-The runtime has complete CPU-side core systems, a GLES2 backend, default and skin pipelines, and immediate-mode infrastructure. The current suite passes with strict C99 flags and GLFW offscreen GLES2 render tests.
+The runtime has complete CPU-side core systems, a GLES2 backend, default and skin pipelines, immediate-mode infrastructure, and GLES2 auto-mipmapping for valid power-of-two rasters. The current suite passes with strict C99 flags and GLFW offscreen GLES2 render tests.
 
 Verify with:
 
@@ -23,7 +23,7 @@ Verify with:
 make test
 ```
 
-The last verified run, from `/home/dvh/Downloads/librw/new_rw`, passed all tests:
+The last verified run, from `/home/dvh/Downloads/librw/new_rw`, passed all tests after the auto-mipmapping work:
 
 - `tests/test_math.c`
 - `tests/test_frame.c`
@@ -50,7 +50,7 @@ cc -I. -Ivendor/glad/include -Ivendor/glfw/include -std=c99 -Wall -Wextra -Werro
 - `rw_geometry.c` - geometry allocation, mesh grouping, bounding spheres, GL instance cleanup on destroy.
 - `rw_scene.c` - atomics, clumps, worlds, cameras, lights, light enumeration, CPU render dispatch, `rw_camera_clear` wired to `glClear`, atomic HAnim hierarchy attachment.
 - `rw_skin.c` - skin data allocation, CPU HAnim attach/interpolate/update, `rw_skin_set_pipeline` wired to the skin pipeline.
-- `rw_gl.c` - GLES2 state cache, shader compile/link, 8 shader permutations, device init/shutdown, texture upload, cache-aware texture deletion, lighting upload, skin matrix upload, camera matrix upload.
+- `rw_gl.c` - GLES2 state cache, shader compile/link, 8 shader permutations, device init/shutdown, texture upload/mipmap generation, cache-aware texture deletion, lighting upload, skin matrix upload, camera matrix upload.
 - `rw_pipeline.c` - default instance callback and render callback for default and skinned geometry.
 - `rw_render.c` - im2d/im3d immediate mode with dynamic VBOs.
 - `rw_gl_internal.h` - shared internal GL backend declarations.
@@ -66,7 +66,17 @@ Do not redo these unless a regression is found.
 - `tests/test_skin.c` covers the HAnim setter.
 - `tests/test_render.c` renders default and skinned triangles in an offscreen GLFW GLES2 context and checks the center pixel.
 - `tests/test_im2d.c` renders primitive and indexed im2d quads in an offscreen GLFW GLES2 context and checks the center pixel.
+- `tests/test_render.c` now also covers mipmapped texture sampler setup: valid power-of-two rasters generate mipmaps, while NPOT rasters fall back to non-mip filters without GL errors.
 - `Makefile` now groups GLFW-dependent render tests through `GL_TEST_NAMES := render im2d`.
+
+## Current Worktree Notes
+
+If this handoff is used before the current changes are committed, expect these intentional modified files:
+
+- `new_rw/rw.h` - added `RwGlRaster.has_mipmaps`.
+- `new_rw/rw_gl.c` - added mip-filter detection, power-of-two validation, one-shot `glGenerateMipmap`, and non-mip fallback.
+- `new_rw/tests/test_render.c` - added offscreen GLES2 coverage for POT mipmaps and NPOT fallback.
+- `new_rw/PROGRESS.md` and `new_rw/HANDOFF.md` - updated status and handoff documentation.
 
 ## GL Backend Notes
 
@@ -74,6 +84,8 @@ Do not redo these unless a regression is found.
 - Other GL-using files include `<glad/gles2.h>` for declarations and `rw_gl_internal.h` for internal backend prototypes/types.
 - `RwGlState` caches blend, depth test/write, cull face, bound textures, and current program. Route GL state changes through cache helpers when helpers exist.
 - `rw_gl_delete_texture(unsigned int *texid)` deletes textures and clears stale cached bindings. Use it instead of direct `glDeleteTextures` for raster-owned textures.
+- `rw_gl_set_texture_sampler()` generates GLES2 mipmaps once for mipmapped filters only when the raster has pixels and power-of-two dimensions. Invalid/NPOT rasters keep textures complete by falling back to non-mip min filters.
+- `rw_gl_upload_raster()` deletes/recreates the GL texture and resets `has_mipmaps`; sampler setup is responsible for regenerating mip levels when a mipmapped filter is requested.
 - Shader permutations are compiled at `rw_engine_start`: `default`, `default_dir`, `default_dir_point`, `skin`, `skin_dir_point`, `im2d`, `im3d`, `im3d_lit`.
 - Attribute locations are fixed before link: `in_pos=0`, `in_normal=1`, `in_tex0=2`, `in_color=3`, `in_weights=4`, `in_indices=5`.
 - Matrix upload convention is `RwMatrix` -> `RwRawMatrix` -> transpose -> `glUniformMatrix4fv`, converting RenderWare row-major layout to GL column-major expectations.
@@ -107,21 +119,17 @@ Do not redo these unless a regression is found.
 
 ## Best Next Tasks
 
-1. **Auto-mipmapping**
-   Add GLES2 `glGenerateMipmap` support for mipmapped texture filters. Avoid generating mipmaps for invalid dimensions or unavailable texture data. Keep CPU-only tests GL-free.
+1. **Texture upload on raster creation/copy**
+   `rw_raster_from_image()` currently performs CPU copy only. Texture upload happens lazily on first render. If adding eager upload, only do it when a GL context/backend is available; CPU-only tests must not require GL. Preserve lazy upload as the safe fallback.
 
-2. **Texture upload on raster creation/copy**
-   `rw_raster_from_image()` currently performs CPU copy only. Texture upload happens lazily on first render. If adding eager upload, only do it when a GL context/backend is available; CPU-only tests must not require GL.
-
-3. **Add `tests/test_gta.c` mini demo**
+2. **Add `tests/test_gta.c` mini demo**
    Exercise a small GTA-like scene: ground plane, building boxes, animated/skinned character, follow camera, fog, and HUD overlay.
 
-4. **Polish/review pass**
-   Check for leaks, GL errors, render-state inconsistencies, line-count drift, and missing coverage around texture filters, fog, alpha test, and alpha blend.
+3. **Polish/review pass**
+   Check for leaks, GL errors, render-state inconsistencies, line-count drift, and missing coverage around texture filters, fog, alpha test, alpha blend, im3d rendering, and camera clear behavior.
 
 ## Current Known Gaps
 
-- No auto-mipmapping yet.
 - `rw_raster_from_image()` does CPU copy only; GL upload happens lazily in the render loop.
 - No GTA-like integration demo yet.
 - Final line count target is approximate and currently over the original estimate.
@@ -141,3 +149,4 @@ Do not redo these unless a regression is found.
 - Run `make test` from `/home/dvh/Downloads/librw/new_rw`.
 - Update `PROGRESS.md` with completed work and verification status.
 - Update this file so it remains an accurate prompt for the next session.
+- Mention any intentional uncommitted files or known test/environment caveats.

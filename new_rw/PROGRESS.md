@@ -1,6 +1,6 @@
 # rw — Implementation Progress
 
-## Status: All core phases complete — im2d GL coverage added, all tests pass
+## Status: All core phases complete — auto-mipmapping added, all tests pass
 
 ## Phase Overview
 
@@ -8,14 +8,14 @@
 |---|---|---|---|
 | 1. Foundation | `rw.h`, `rw_engine.c` | Done | Types, math, engine lifecycle — strict C99 syntax check passes |
 | 2. Frame hierarchy | `rw_frame.c` | Done | Transform tree, dirty propagation — math/frame tests pass |
-| 3. GL backend core | `rw_gl.c`, `rw_gl_internal.h`, `rw_raster.c`, `rw_material.c` | Done | State cache, 8 shader permutations, texture upload, lighting, skin matrices |
+| 3. GL backend core | `rw_gl.c`, `rw_gl_internal.h`, `rw_raster.c`, `rw_material.c` | Done | State cache, 8 shader permutations, texture upload/mipmaps, lighting, skin matrices |
 | 4. Geometry + Pipeline | `rw_geometry.c`, `rw_pipeline.c` | Done | CPU geometry + GPU instance/render pipeline with interleaved VBO/IBO |
 | 5. Scene graph | `rw_scene.c` | Done | CPU atomic/clump/world/light/camera, frustum planes, glClear wired |
 | 6. Immediate mode | `rw_render.c` | Done | im2d + im3d with dynamic VBOs |
 | 7. Animation | `rw_skin.c` | Done | CPU skin + HAnim, skin pipeline wired |
 | 8. Polish | `test_render.c`, `test_im2d.c`, Makefile | In progress | GL render tests added; integration demo not started |
 
-**Total: ~4,245 lines of C in library code (target ~4,000).**
+**Total: ~4,253 lines of C in library code (target ~4,000).**
 
 ## Phase 1: Foundation
 
@@ -83,6 +83,7 @@
 - [x] Lighting upload (ambient, directional, point light uniform arrays)
 - [x] Texture upload (glGenTextures + glTexImage2D for RGBA rasters)
 - [x] Texture sampler state (filter/wrap mode mapping)
+- [x] Auto-mipmap generation for mipmapped filters on valid power-of-two rasters, with non-mip fallback for invalid/NPOT rasters
 - [x] Skin matrix upload (hierarchy × inverse_bind, transposed for GL)
 - [x] Shader selection logic (based on light counts + skin flag)
 
@@ -159,6 +160,7 @@
 
 ### Tests
 - [x] test_im2d.c — primitive and indexed 2D quads render in an offscreen GLES2 context
+- [x] test_render.c — GL texture sampler coverage for POT mipmap generation and NPOT fallback
 
 ## Phase 7: Animation
 
@@ -205,3 +207,4 @@
 | 2026-04-24 | Leak Fixes | Freed GL instance VBO/IBO data from `rw_geometry_destroy`; freed raster GL textures from `rw_raster_destroy` via a cache-aware texture delete helper; strict `make test` passes |
 | 2026-04-24 | Skin GL | Added atomic HAnim hierarchy attachment and wired `default_render()` to upload skin bone matrices; extended `test_render.c` to render both default and skinned triangles with center-pixel verification; strict `make test` passes |
 | 2026-04-24 | im2d GL | Added `tests/test_im2d.c` for offscreen GLES2 primitive and indexed im2d quad rendering; generalized Makefile GL tests; strict `make test` passes |
+| 2026-04-24 | Texture GL | Added GLES2 `glGenerateMipmap` support for mipmapped texture filters on valid power-of-two rasters, NPOT/invalid fallback to non-mip filters, and GL sampler coverage in `test_render.c`; strict `make test` passes |

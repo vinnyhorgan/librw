@@ -479,6 +479,33 @@ rw_gl_upload_raw_matrix(int loc, const RwRawMatrix *raw)
 
 /* ---- Texture Upload ---- */
 
+static int
+is_power_of_two(int n)
+{
+    return n > 0 && (n & (n - 1)) == 0;
+}
+
+static int
+is_mip_filter(int filter)
+{
+    return filter >= RW_TEX_FILTER_MIP_NEAREST && filter <= RW_TEX_FILTER_LINEAR_MIP_LINEAR;
+}
+
+static int
+can_generate_mipmaps(RwRaster *r)
+{
+    return r && r->pixels && is_power_of_two(r->width) && is_power_of_two(r->height);
+}
+
+static int
+fallback_min_filter(int filter)
+{
+    if (filter == RW_TEX_FILTER_LINEAR || filter == RW_TEX_FILTER_MIP_LINEAR ||
+        filter == RW_TEX_FILTER_LINEAR_MIP_NEAREST || filter == RW_TEX_FILTER_LINEAR_MIP_LINEAR)
+        return GL_LINEAR;
+    return GL_NEAREST;
+}
+
 void
 rw_gl_upload_raster(RwRaster *r)
 {
@@ -502,6 +529,7 @@ rw_gl_upload_raster(RwRaster *r)
     r->gl.gl_format = GL_RGBA;
     r->gl.gl_type = GL_UNSIGNED_BYTE;
     r->gl.bpp = 4;
+    r->gl.has_mipmaps = 0;
 }
 
 void
@@ -536,11 +564,21 @@ rw_gl_set_texture_sampler(RwRaster *r, int filter, int address_u, int address_v)
 
     rw_gl_state_bind_texture(0, r->gl.texid);
 
-    if (filter >= 0 && filter < 6)
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filter_map[filter]);
-    if (filter == RW_TEX_FILTER_NEAREST || filter == RW_TEX_FILTER_LINEAR) {
-        int mag = (filter == RW_TEX_FILTER_LINEAR) ? GL_LINEAR : GL_NEAREST;
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, mag);
+    if (filter >= 0 && filter < 6) {
+        int min_filter = filter_map[filter];
+
+        if (is_mip_filter(filter)) {
+            if (can_generate_mipmaps(r)) {
+                if (!r->gl.has_mipmaps) {
+                    glGenerateMipmap(GL_TEXTURE_2D);
+                    r->gl.has_mipmaps = 1;
+                }
+            } else {
+                min_filter = fallback_min_filter(filter);
+            }
+        }
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, min_filter);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, fallback_min_filter(filter));
     }
     if (address_u >= 0 && address_u < 4)
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, wrap_map[address_u]);

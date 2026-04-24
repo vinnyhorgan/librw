@@ -244,6 +244,7 @@ typedef struct {
     int gl_type;
     int bpp;
     unsigned int texid;
+    int has_mipmaps;
     int filter, address_u, address_v;
     int has_alpha;
 } RwGlRaster;

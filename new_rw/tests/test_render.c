@@ -8,6 +8,61 @@
 #include <string.h>
 
 static void
+test_texture_mipmap_sampler(void)
+{
+    GLFWwindow *win;
+    RwRaster *pot;
+    RwRaster *npot;
+    uint8_t *pixels;
+    GLint min_filter;
+    GLenum err;
+
+    win = glfwCreateWindow(64, 64, "test_mipmap", NULL, NULL);
+    assert(win);
+    glfwMakeContextCurrent(win);
+    gladLoadGLES2(glfwGetProcAddress);
+
+    assert(rw_engine_init(NULL));
+    assert(rw_engine_open());
+    assert(rw_engine_start());
+
+    pot = rw_raster_create(4, 4, 32, 0);
+    assert(pot);
+    pixels = rw_raster_lock(pot);
+    assert(pixels);
+    memset(pixels, 255, 4 * 4 * 4);
+    rw_gl_upload_raster(pot);
+    rw_gl_set_texture_sampler(pot, RW_TEX_FILTER_LINEAR_MIP_LINEAR, RW_TEX_WRAP_CLAMP, RW_TEX_WRAP_CLAMP);
+    glGetTexParameteriv(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, &min_filter);
+    assert(min_filter == GL_LINEAR_MIPMAP_LINEAR);
+    assert(pot->gl.has_mipmaps);
+
+    npot = rw_raster_create(3, 2, 32, 0);
+    assert(npot);
+    pixels = rw_raster_lock(npot);
+    assert(pixels);
+    memset(pixels, 255, 3 * 2 * 4);
+    rw_gl_upload_raster(npot);
+    rw_gl_set_texture_sampler(npot, RW_TEX_FILTER_LINEAR_MIP_LINEAR, RW_TEX_WRAP_CLAMP, RW_TEX_WRAP_CLAMP);
+    glGetTexParameteriv(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, &min_filter);
+    assert(min_filter == GL_LINEAR);
+    assert(!npot->gl.has_mipmaps);
+
+    err = glGetError();
+    fprintf(stderr, "GL error after mipmap sampler: 0x%x\n", err);
+    assert(err == GL_NO_ERROR);
+
+    rw_raster_destroy(pot);
+    rw_raster_destroy(npot);
+    rw_engine_stop();
+    rw_engine_close();
+    rw_engine_term();
+
+    glfwDestroyWindow(win);
+    fprintf(stderr, "test_texture_mipmap_sampler: PASS\n");
+}
+
+static void
 test_render_triangle(int skinned)
 {
     GLFWwindow *win;
@@ -165,6 +220,7 @@ main(void)
 
     test_render_triangle(0);
     test_render_triangle(1);
+    test_texture_mipmap_sampler();
 
     glfwTerminate();
     return 0;
