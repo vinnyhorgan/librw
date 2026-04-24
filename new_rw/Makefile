@@ -29,8 +29,9 @@ LIB_DEPS := $(LIB_OBJS:.o=.d)
 TEST_NAMES := math frame material geometry scene skin
 TEST_BINS := $(TEST_NAMES:%=$(BIN_DIR)/test_%)
 
-RENDER_TEST_BIN := $(BIN_DIR)/test_render
-RENDER_TEST_LDLIBS := -lglfw -ldl
+GL_TEST_NAMES := render im2d
+GL_TEST_BINS := $(GL_TEST_NAMES:%=$(BIN_DIR)/test_%)
+GL_TEST_LDLIBS := -lglfw -ldl
 
 .PHONY: all test check clean
 
@@ -45,11 +46,11 @@ $(OBJ_DIR)/%.o: %.c rw.h | $(OBJ_DIR)
 $(BIN_DIR)/test_%: tests/test_%.c $(LIB) | $(BIN_DIR)
 	$(CC) $(CPPFLAGS) $(CFLAGS) -MMD -MP $< $(LIB) $(LDFLAGS) $(LDLIBS) -o $@
 
-$(RENDER_TEST_BIN): tests/test_render.c $(LIB) | $(BIN_DIR)
-	$(CC) $(CPPFLAGS) $(CFLAGS) -MMD -MP $< $(LIB) $(LDFLAGS) $(LDLIBS) $(RENDER_TEST_LDLIBS) -o $@
+$(GL_TEST_BINS): $(BIN_DIR)/test_%: tests/test_%.c $(LIB) | $(BIN_DIR)
+	$(CC) $(CPPFLAGS) $(CFLAGS) -MMD -MP $< $(LIB) $(LDFLAGS) $(LDLIBS) $(GL_TEST_LDLIBS) -o $@
 
-test check: $(TEST_BINS) $(RENDER_TEST_BIN)
-	@set -e; for test in $(TEST_BINS) $(RENDER_TEST_BIN); do printf '%s\n' "==> $$test"; "$$test"; done
+test check: $(TEST_BINS) $(GL_TEST_BINS)
+	@set -e; for test in $(TEST_BINS) $(GL_TEST_BINS); do printf '%s\n' "==> $$test"; "$$test"; done
 
 $(BUILD_DIR) $(OBJ_DIR) $(BIN_DIR):
 	mkdir -p $@

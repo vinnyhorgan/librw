@@ -4,32 +4,26 @@ You are continuing work in `/home/dvh/Downloads/librw/new_rw` on `rw`, a compact
 
 Everything outside `new_rw/` is the original C++ librw codebase and is reference only. Study algorithms there when useful, but do not copy code.
 
-## Start Here
+## First Actions
 
-1. Read `new_rw/PLAN.md` for the architecture/spec and intended implementation order.
-2. Read `new_rw/PROGRESS.md` for current implementation status and changelog.
-3. Read `new_rw/Makefile` for the strict build/test entry point.
-4. Inspect only the source files needed for the task you choose.
-5. Before editing, check the working tree and avoid touching unrelated user/agent changes.
+1. Work from `/home/dvh/Downloads/librw/new_rw`.
+2. Read `PLAN.md` for architecture, constraints, API shape, and intended implementation order.
+3. Read `PROGRESS.md` for implementation status and changelog.
+4. Read `Makefile` before running builds; it is the strict build/test entry point.
+5. Run `git status --short` from `/home/dvh/Downloads/librw` before editing. The tree may contain uncommitted work from a previous agent or the user. Do not revert or overwrite unrelated changes.
+6. Inspect only the source files needed for the task you choose.
 
 ## Verified State
 
-The runtime has complete CPU-side core systems, a GLES2 backend, default and skin pipelines, and immediate-mode infrastructure. The current test suite passes with strict C99 flags, including a GLFW offscreen GLES2 render test that verifies a center pixel for both default and skinned triangle rendering.
+The runtime has complete CPU-side core systems, a GLES2 backend, default and skin pipelines, and immediate-mode infrastructure. The current suite passes with strict C99 flags and GLFW offscreen GLES2 render tests.
 
 Verify with:
 
 ```bash
-cd /home/dvh/Downloads/librw/new_rw
 make test
 ```
 
-The last verified test run used:
-
-```text
-cc -I. -Ivendor/glad/include -Ivendor/glfw/include -std=c99 -Wall -Wextra -Werror -pedantic -O2 ... -lm -lglfw -ldl
-```
-
-Current tests:
+The last verified run, from `/home/dvh/Downloads/librw/new_rw`, passed all tests:
 
 - `tests/test_math.c`
 - `tests/test_frame.c`
@@ -38,8 +32,15 @@ Current tests:
 - `tests/test_scene.c`
 - `tests/test_skin.c`
 - `tests/test_render.c`
+- `tests/test_im2d.c`
 
-## Implemented Files
+The strict build uses:
+
+```text
+cc -I. -Ivendor/glad/include -Ivendor/glfw/include -std=c99 -Wall -Wextra -Werror -pedantic -O2 ... -lm -lglfw -ldl
+```
+
+## Current Implementation
 
 - `rw.h` - public types, structs, enums, APIs, inline math, intrusive lists.
 - `rw_engine.c` - engine lifecycle, render-state array, allocator wrappers, GL backend lifecycle wiring.
@@ -56,15 +57,16 @@ Current tests:
 
 ## Recent Completed Work
 
-Skin rendering is now wired through the default render path.
+Do not redo these unless a regression is found.
 
+- Skin rendering is wired through the default render path.
 - `RwAtomic` has a borrowed `RwHAnimHier *hanim` pointer.
 - `rw_atomic_set_hanim_hierarchy(RwAtomic *a, RwHAnimHier *h)` attaches the hierarchy to an atomic.
 - `default_render()` calls `rw_gl_upload_skin_matrices(a->hanim, geo->skin, shader_idx)` when geometry is skinned and a hierarchy is attached.
 - `tests/test_skin.c` covers the HAnim setter.
-- `tests/test_render.c` renders both default and skinned triangles and checks the center pixel.
-
-Do not redo this task unless a regression is found.
+- `tests/test_render.c` renders default and skinned triangles in an offscreen GLFW GLES2 context and checks the center pixel.
+- `tests/test_im2d.c` renders primitive and indexed im2d quads in an offscreen GLFW GLES2 context and checks the center pixel.
+- `Makefile` now groups GLFW-dependent render tests through `GL_TEST_NAMES := render im2d`.
 
 ## GL Backend Notes
 
@@ -75,6 +77,8 @@ Do not redo this task unless a regression is found.
 - Shader permutations are compiled at `rw_engine_start`: `default`, `default_dir`, `default_dir_point`, `skin`, `skin_dir_point`, `im2d`, `im3d`, `im3d_lit`.
 - Attribute locations are fixed before link: `in_pos=0`, `in_normal=1`, `in_tex0=2`, `in_color=3`, `in_weights=4`, `in_indices=5`.
 - Matrix upload convention is `RwMatrix` -> `RwRawMatrix` -> transpose -> `glUniformMatrix4fv`, converting RenderWare row-major layout to GL column-major expectations.
+- `rw_im2d_render_*` maps pixel coordinates through the current camera framebuffer size when present, otherwise through the GL viewport.
+- The default engine render state enables back-face culling with `RW_CULL_CCW`; immediate-mode tests that draw screen-space quads should disable culling with `rw_set_render_state(RW_STATE_CULLMODE, RW_CULL_NONE)` unless winding is deliberately tested.
 
 ## Pipeline Notes
 
@@ -99,30 +103,26 @@ Do not redo this task unless a regression is found.
 - Current mesh building supports triangle lists only; `RW_GEO_TRISTRIP` intentionally returns failure.
 - `RwClump` owns its current frame. `rw_clump_set_frame` destroys the old owned frame and takes ownership of the new frame.
 - `RwHAnimHier.anim_data` is borrowed external storage; `rw_hanim_destroy()` does not free it.
-- `RwAtomic.hanim` is also borrowed; `rw_atomic_destroy()` does not destroy it.
+- `RwAtomic.hanim` is borrowed external storage; `rw_atomic_destroy()` does not destroy it.
 
 ## Best Next Tasks
 
-1. **Texture upload on raster creation/copy**
+1. **Auto-mipmapping**
+   Add GLES2 `glGenerateMipmap` support for mipmapped texture filters. Avoid generating mipmaps for invalid dimensions or unavailable texture data. Keep CPU-only tests GL-free.
+
+2. **Texture upload on raster creation/copy**
    `rw_raster_from_image()` currently performs CPU copy only. Texture upload happens lazily on first render. If adding eager upload, only do it when a GL context/backend is available; CPU-only tests must not require GL.
 
-2. **Auto-mipmapping**
-   Add GLES2 `glGenerateMipmap` support for mipmapped texture filters. Avoid generating mipmaps for invalid dimensions or unavailable texture data.
-
-3. **Add `tests/test_im2d.c`**
-   Cover 2D overlay rendering with the immediate mode API. Use GLFW only in tests, not runtime code.
-
-4. **Add `tests/test_gta.c` mini demo**
+3. **Add `tests/test_gta.c` mini demo**
    Exercise a small GTA-like scene: ground plane, building boxes, animated/skinned character, follow camera, fog, and HUD overlay.
 
-5. **Polish/review pass**
-   Check for leaks, GL errors, render-state inconsistencies, line-count drift, and missing coverage around texture filters/fog/alpha.
+4. **Polish/review pass**
+   Check for leaks, GL errors, render-state inconsistencies, line-count drift, and missing coverage around texture filters, fog, alpha test, and alpha blend.
 
 ## Current Known Gaps
 
-- `rw_raster_from_image()` does CPU copy only; GL upload happens lazily in the render loop.
 - No auto-mipmapping yet.
-- No im2d render test yet.
+- `rw_raster_from_image()` does CPU copy only; GL upload happens lazily in the render loop.
 - No GTA-like integration demo yet.
 - Final line count target is approximate and currently over the original estimate.
 
@@ -135,3 +135,9 @@ Do not redo this task unless a regression is found.
 - Do not rewrite broad compatibility layers unless a concrete shipped data/API need appears.
 - Do not audit or rewrite `vendor/glfw`, `vendor/glad`, or `vendor/stb` unless the task is specifically about third-party code.
 - Do not undo unrelated user or agent changes in the worktree.
+
+## Before Handing Off Again
+
+- Run `make test` from `/home/dvh/Downloads/librw/new_rw`.
+- Update `PROGRESS.md` with completed work and verification status.
+- Update this file so it remains an accurate prompt for the next session.

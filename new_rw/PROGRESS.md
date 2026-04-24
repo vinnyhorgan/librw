@@ -1,6 +1,6 @@
 # rw — Implementation Progress
 
-## Status: All core phases complete — skin GL upload covered, all tests pass
+## Status: All core phases complete — im2d GL coverage added, all tests pass
 
 ## Phase Overview
 
@@ -13,7 +13,7 @@
 | 5. Scene graph | `rw_scene.c` | Done | CPU atomic/clump/world/light/camera, frustum planes, glClear wired |
 | 6. Immediate mode | `rw_render.c` | Done | im2d + im3d with dynamic VBOs |
 | 7. Animation | `rw_skin.c` | Done | CPU skin + HAnim, skin pipeline wired |
-| 8. Polish | `test_render.c`, Makefile | In progress | GL render test added; integration demo not started |
+| 8. Polish | `test_render.c`, `test_im2d.c`, Makefile | In progress | GL render tests added; integration demo not started |
 
 **Total: ~4,245 lines of C in library code (target ~4,000).**
 
@@ -158,7 +158,7 @@
 - [x] rw_im3d_end (clears stored vertex state)
 
 ### Tests
-- [ ] test_im2d.c — 2D overlays render on top of 3D scene
+- [x] test_im2d.c — primitive and indexed 2D quads render in an offscreen GLES2 context
 
 ## Phase 7: Animation
 
@@ -204,3 +204,4 @@
 | 2026-04-24 | 5/6/7 | Added `rw_render.c` (~260 lines) with im2d/im3d immediate mode; added `tests/test_render.c` GL render test with GLFW offscreen context; wired rw_camera_clear to glClear; wired rw_skin_set_pipeline; all tests pass |
 | 2026-04-24 | Leak Fixes | Freed GL instance VBO/IBO data from `rw_geometry_destroy`; freed raster GL textures from `rw_raster_destroy` via a cache-aware texture delete helper; strict `make test` passes |
 | 2026-04-24 | Skin GL | Added atomic HAnim hierarchy attachment and wired `default_render()` to upload skin bone matrices; extended `test_render.c` to render both default and skinned triangles with center-pixel verification; strict `make test` passes |
+| 2026-04-24 | im2d GL | Added `tests/test_im2d.c` for offscreen GLES2 primitive and indexed im2d quad rendering; generalized Makefile GL tests; strict `make test` passes |
