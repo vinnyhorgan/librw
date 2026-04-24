@@ -1,6 +1,6 @@
 # rw — Implementation Progress
 
-## Status: Phase 2 FRAME HIERARCHY COMPLETE — tests pass
+## Status: Phase 3 CPU RESOURCE LAYER STARTED — math/frame/material tests pass
 
 ## Phase Overview
 
@@ -8,7 +8,7 @@
 |---|---|---|---|
 | 1. Foundation | `rw.h`, `rw_engine.c` | Done | Types, math, engine lifecycle — strict C99 syntax check passes |
 | 2. Frame hierarchy | `rw_frame.c` | Done | Transform tree, dirty propagation — math/frame tests pass |
-| 3. GL backend core | `rw_gl.c` (partial), `rw_raster.c`, `rw_material.c` | Not started | Shaders, state cache, textures |
+| 3. GL backend core | `rw_gl.c` (partial), `rw_raster.c`, `rw_material.c` | In progress | CPU material/texture/texdict and raster/image basics done; GL upload/shaders not started |
 | 4. Geometry + Pipeline | `rw_geometry.c`, `rw_pipeline.c` | Not started | Mesh building, GPU instancing, render |
 | 5. Scene graph | `rw_scene.c` | Not started | Atomic, clump, camera, light, world |
 | 6. Immediate mode | `rw_render.c` | Not started | im2d + im3d |
@@ -78,19 +78,20 @@
 - [ ] rw_gl_shutdown
 
 ### rw_raster.c
-- [ ] rw_raster_create
-- [ ] rw_raster_destroy
-- [ ] rw_raster_lock / rw_raster_unlock
+- [x] rw_raster_create
+- [x] rw_raster_destroy
+- [x] rw_raster_lock / rw_raster_unlock (CPU pixel storage only)
 - [ ] rw_image_load (stb_image bridge)
-- [ ] rw_image_destroy
-- [ ] rw_raster_from_image (GL texture upload)
+- [x] rw_image_destroy
+- [x] rw_raster_from_image (CPU copy only; GL upload still pending)
 
 ### rw_material.c
-- [ ] rw_material_create / destroy
-- [ ] rw_material_set_texture / color / surface
-- [ ] rw_texture_create / destroy
-- [ ] rw_texture_set_filter / addressing
-- [ ] rw_texdict_create / destroy / add / find
+- [x] rw_material_create / destroy
+- [x] rw_material_set_texture / color / surface
+- [x] rw_texture_create / destroy
+- [x] rw_texture_set_filter / addressing
+- [x] rw_texdict_create / destroy / add / find
+- [x] tests/test_material.c — material defaults/refcounts, texdict lookup/ownership, raster lock/image copy
 
 ## Phase 4: Geometry + Pipeline
 
@@ -179,3 +180,4 @@
 | 2026-04-23 | 1 | rw.h (~460 lines), rw_engine.c (~110 lines) — clean compile with -Wall -Wextra -Werror |
 | 2026-04-24 | 1 | Corrected matrix/raw-matrix math to match RenderWare layout, validated custom memory callbacks, added `new_rw/.gitignore`, removed generated object from tracking, and added `tests/test_math.c` |
 | 2026-04-24 | 2 | Added `rw_frame.c` frame hierarchy with dirty-list LTM sync and `tests/test_frame.c` coverage for hierarchy composition, get-ltm sync, and child detach |
+| 2026-04-24 | 3 | Added CPU-side `rw_material.c`, `rw_raster.c`, and `tests/test_material.c`; GL upload/image loading remain pending |

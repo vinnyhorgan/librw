@@ -1,4 +1,4 @@
-# rw — Phase 2 Complete, Continuing Implementation
+# rw — Phase 3 CPU Resource Layer Started
 
 ## Project
 
@@ -76,9 +76,38 @@ Implemented `new_rw/rw_frame.c` (~184 lines). Reference: `src/frame.cpp`.
 - `gcc -std=c99 -Wall -Wextra -Werror -I. tests/test_math.c rw_engine.c -lm -o test_math && ./test_math`
 - `gcc -std=c99 -Wall -Wextra -Werror -I. tests/test_frame.c rw_engine.c rw_frame.c -lm -o test_frame && ./test_frame`
 
-## What's Next: Phase 3 — GL Backend Core + Textures
+## Phase 3 Progress
 
-Start `rw_gl.c` (partial), `rw_raster.c`, and `rw_material.c` per `PLAN.md` and `PROGRESS.md`.
+Added `new_rw/rw_material.c`, `new_rw/rw_raster.c`, and `new_rw/tests/test_material.c`.
+
+Implemented CPU-side resource functions:
+- `rw_material_create/destroy`, `rw_material_set_texture/color/surface`
+- `rw_texture_create/destroy`, `rw_texture_set_filter/addressing`
+- `rw_texdict_create/destroy/add/find`
+- `rw_raster_create/destroy/lock/unlock`
+- `rw_image_destroy`
+- `rw_raster_from_image` as a CPU pixel copy only
+
+Important ownership behavior:
+- Materials start white with ambient/specular/diffuse set to `1.0f` and `ref_count = 1`.
+- `rw_material_set_texture` increments the new texture refcount and destroys/releases the old one.
+- `rw_texture_destroy` decrements refcount, unlinks from its texdict at zero, destroys owned raster, and frees.
+- `rw_texdict_destroy` unlinks and destroys all contained textures.
+- Texture filter/addressing is packed as `VVVVUUUU FFFFFFFF`, matching the planned struct field.
+
+Still pending in Phase 3:
+- `rw_image_load` stb_image bridge currently returns `NULL`.
+- `rw_raster_from_image` does not upload GL texture data yet.
+- `rw_gl.c` state cache, shader compilation, shader permutations, and GL lifecycle hooks are not started.
+
+Verified commands:
+- `gcc -std=c99 -Wall -Wextra -Werror -I. tests/test_math.c rw_engine.c -lm -o test_math && ./test_math`
+- `gcc -std=c99 -Wall -Wextra -Werror -I. tests/test_frame.c rw_engine.c rw_frame.c -lm -o test_frame && ./test_frame`
+- `gcc -std=c99 -Wall -Wextra -Werror -I. tests/test_material.c rw_engine.c rw_material.c rw_raster.c -lm -o test_material && ./test_material`
+
+## What's Next: Continue Phase 3 — GL Backend Core + Textures
+
+Implement `rw_image_load` via `stb_image.h`, then add `rw_gl.c` state cache/shader lifecycle and wire texture upload into `rw_raster_from_image` once a GL context is available.
 
 ## Build Notes
 - `gcc -std=c99 -Wall -Wextra -Werror`
