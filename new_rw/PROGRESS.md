@@ -1,6 +1,6 @@
 # rw — Implementation Progress
 
-## Status: Phase 3 CPU RESOURCE LAYER CONTINUES — math/frame/material tests pass
+## Status: Phase 4 CPU GEOMETRY LAYER STARTED — math/frame/material/geometry tests pass
 
 ## Phase Overview
 
@@ -9,7 +9,7 @@
 | 1. Foundation | `rw.h`, `rw_engine.c` | Done | Types, math, engine lifecycle — strict C99 syntax check passes |
 | 2. Frame hierarchy | `rw_frame.c` | Done | Transform tree, dirty propagation — math/frame tests pass |
 | 3. GL backend core | `rw_gl.c` (partial), `rw_raster.c`, `rw_material.c` | In progress | CPU material/texture/texdict, raster/image loading done; GL upload/shaders not started |
-| 4. Geometry + Pipeline | `rw_geometry.c`, `rw_pipeline.c` | Not started | Mesh building, GPU instancing, render |
+| 4. Geometry + Pipeline | `rw_geometry.c`, `rw_pipeline.c` | In progress | CPU geometry allocation, mesh building, bounding sphere done; GPU instancing/render not started |
 | 5. Scene graph | `rw_scene.c` | Not started | Atomic, clump, camera, light, world |
 | 6. Immediate mode | `rw_render.c` | Not started | im2d + im3d |
 | 7. Animation | `rw_skin.c` | Not started | Skin + HAnim |
@@ -96,13 +96,13 @@
 ## Phase 4: Geometry + Pipeline
 
 ### rw_geometry.c
-- [ ] rw_geometry_create
-- [ ] rw_geometry_destroy
-- [ ] rw_geometry_lock / unlock
-- [ ] rw_geometry_build_meshes (group triangles by material)
-- [ ] rw_geometry_calc_bounding_sphere
-- [ ] allocateData (vertex array allocation)
-- [ ] allocateMeshes (mesh header + mesh array)
+- [x] rw_geometry_create
+- [x] rw_geometry_destroy
+- [x] rw_geometry_lock / unlock
+- [x] rw_geometry_build_meshes (group triangles by material)
+- [x] rw_geometry_calc_bounding_sphere
+- [x] allocateData (vertex array allocation)
+- [x] allocateMeshes (mesh header + mesh array)
 
 ### rw_pipeline.c
 - [ ] Default pipeline: instance callback
@@ -116,6 +116,7 @@
 
 ### Tests
 - [ ] test_triangle.c — single textured triangle renders
+- [x] tests/test_geometry.c — CPU geometry allocation, mesh grouping, lock invalidation, bounding sphere
 
 ## Phase 5: Scene Graph
 
@@ -182,3 +183,4 @@
 | 2026-04-24 | 2 | Added `rw_frame.c` frame hierarchy with dirty-list LTM sync and `tests/test_frame.c` coverage for hierarchy composition, get-ltm sync, and child detach |
 | 2026-04-24 | 3 | Added CPU-side `rw_material.c`, `rw_raster.c`, and `tests/test_material.c`; GL upload/image loading remained pending |
 | 2026-04-24 | 3 | Implemented `rw_image_load` with `stb_image.h` and project allocators; extended material test with runtime TGA loading coverage |
+| 2026-04-24 | 4 | Added CPU-side `rw_geometry.c` and `tests/test_geometry.c`; geometry allocation, default material, trilist mesh grouping, polygon-lock mesh invalidation, and bounding sphere coverage pass |

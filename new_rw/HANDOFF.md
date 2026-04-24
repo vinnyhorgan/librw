@@ -1,4 +1,4 @@
-# rw — Phase 3 CPU Resource Layer Continued
+# rw — Phase 4 CPU Geometry Layer Started
 
 ## Project
 
@@ -106,9 +106,32 @@ Verified commands:
 - `gcc -std=c99 -Wall -Wextra -Werror -I. tests/test_frame.c rw_engine.c rw_frame.c -lm -o test_frame && ./test_frame`
 - `gcc -std=c99 -Wall -Wextra -Werror -I. tests/test_material.c rw_engine.c rw_material.c rw_raster.c -lm -o test_material && ./test_material`
 
-## What's Next: Continue Phase 3 — GL Backend Core + Textures
+## Phase 4 Progress
 
-Add `rw_gl.c` state cache/shader lifecycle and wire texture upload into `rw_raster_from_image` once a GL context is available.
+Added `new_rw/rw_geometry.c` and `new_rw/tests/test_geometry.c`.
+
+Implemented CPU-side geometry functions:
+- `rw_geometry_create/destroy`
+- `rw_geometry_lock/unlock`
+- `rw_geometry_build_meshes` for triangle lists grouped by `mat_id`
+- `rw_geometry_calc_bounding_sphere`
+
+Important behavior:
+- Geometries start with `ref_count = 1` and one default white material so `mat_id = 0` triangles are immediately valid.
+- Vertex arrays are allocated based on geometry flags: positions always, normals for `RW_GEO_NORMALS`, colors for `RW_GEO_PRELIT`, texcoords for `RW_GEO_TEXTURED`.
+- Mesh headers are a single allocation containing `RwMeshHeader`, `RwMesh[num_materials]`, and contiguous `uint16_t` indices.
+- `rw_geometry_lock(..., RW_LOCK_POLYGONS)` frees the existing mesh header; `rw_geometry_unlock` rebuilds it when absent.
+- Bounding sphere follows the librw reference: compute AABB min/max, center at `(min + max) * 0.5`, radius as distance from center to max.
+
+Verified commands:
+- `gcc -std=c99 -Wall -Wextra -Werror -I. tests/test_math.c rw_engine.c -lm -o test_math && ./test_math`
+- `gcc -std=c99 -Wall -Wextra -Werror -I. tests/test_frame.c rw_engine.c rw_frame.c -lm -o test_frame && ./test_frame`
+- `gcc -std=c99 -Wall -Wextra -Werror -I. tests/test_material.c rw_engine.c rw_material.c rw_raster.c -lm -o test_material && ./test_material`
+- `gcc -std=c99 -Wall -Wextra -Werror -I. tests/test_geometry.c rw_engine.c rw_material.c rw_raster.c rw_geometry.c -lm -o test_geometry && ./test_geometry`
+
+## What's Next: Continue Phase 4 — Pipeline/Scene Prerequisites
+
+Next useful progress is either `rw_pipeline.c` CPU/GPU instance-data scaffolding or `rw_scene.c` atomics/clumps/camera/world. Full triangle rendering still requires GL backend state/shaders and scene/camera pieces.
 
 ## Build Notes
 - `gcc -std=c99 -Wall -Wextra -Werror`
