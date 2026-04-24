@@ -1,4 +1,4 @@
-# rw — Phase 3 CPU Resource Layer Started
+# rw — Phase 3 CPU Resource Layer Continued
 
 ## Project
 
@@ -85,8 +85,10 @@ Implemented CPU-side resource functions:
 - `rw_texture_create/destroy`, `rw_texture_set_filter/addressing`
 - `rw_texdict_create/destroy/add/find`
 - `rw_raster_create/destroy/lock/unlock`
+- `rw_image_load` through `stb_image.h`, forcing RGBA8 output and using the engine memory callbacks
 - `rw_image_destroy`
 - `rw_raster_from_image` as a CPU pixel copy only
+- `tests/test_material.c` writes a tiny uncompressed TGA fixture at runtime and verifies loaded RGBA pixels
 
 Important ownership behavior:
 - Materials start white with ambient/specular/diffuse set to `1.0f` and `ref_count = 1`.
@@ -96,7 +98,6 @@ Important ownership behavior:
 - Texture filter/addressing is packed as `VVVVUUUU FFFFFFFF`, matching the planned struct field.
 
 Still pending in Phase 3:
-- `rw_image_load` stb_image bridge currently returns `NULL`.
 - `rw_raster_from_image` does not upload GL texture data yet.
 - `rw_gl.c` state cache, shader compilation, shader permutations, and GL lifecycle hooks are not started.
 
@@ -107,7 +108,7 @@ Verified commands:
 
 ## What's Next: Continue Phase 3 — GL Backend Core + Textures
 
-Implement `rw_image_load` via `stb_image.h`, then add `rw_gl.c` state cache/shader lifecycle and wire texture upload into `rw_raster_from_image` once a GL context is available.
+Add `rw_gl.c` state cache/shader lifecycle and wire texture upload into `rw_raster_from_image` once a GL context is available.
 
 ## Build Notes
 - `gcc -std=c99 -Wall -Wextra -Werror`

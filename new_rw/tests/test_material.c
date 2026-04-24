@@ -1,6 +1,7 @@
 #include "../rw.h"
 
 #include <assert.h>
+#include <stdio.h>
 #include <string.h>
 
 static void
@@ -50,6 +51,34 @@ test_texdict_add_find_destroy(void)
 }
 
 static void
+test_image_load_tga(void)
+{
+    static const uint8_t tga[] = {
+        0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        2, 0, 1, 0, 24, 0x20,
+        0, 0, 255,
+        0, 255, 0,
+    };
+    const char *path = "test_material_image.tga";
+    FILE *f = fopen(path, "wb");
+    RwImage *img;
+
+    assert(f);
+    assert(fwrite(tga, 1, sizeof(tga), f) == sizeof(tga));
+    assert(fclose(f) == 0);
+
+    img = rw_image_load(path);
+    assert(img);
+    assert(img->width == 2 && img->height == 1);
+    assert(img->depth == 32 && img->bpp == 4 && img->stride == 8);
+    assert(img->pixels[0] == 255 && img->pixels[1] == 0 && img->pixels[2] == 0 && img->pixels[3] == 255);
+    assert(img->pixels[4] == 0 && img->pixels[5] == 255 && img->pixels[6] == 0 && img->pixels[7] == 255);
+
+    rw_image_destroy(img);
+    assert(remove(path) == 0);
+}
+
+static void
 test_raster_lock_and_copy_image(void)
 {
     RwRaster *r = rw_raster_create(2, 2, 32, 0);
@@ -92,6 +121,7 @@ main(void)
     assert(rw_engine_init(NULL));
     test_material_defaults_and_texture_ref();
     test_texdict_add_find_destroy();
+    test_image_load_tga();
     test_raster_lock_and_copy_image();
     rw_engine_term();
     return 0;

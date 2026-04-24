@@ -2,6 +2,12 @@
 
 #include <string.h>
 
+#define STBI_MALLOC(sz) rw_malloc(sz)
+#define STBI_REALLOC(p, sz) rw_realloc(p, sz)
+#define STBI_FREE(p) rw_free(p)
+#define STB_IMAGE_IMPLEMENTATION
+#include "vendor/stb/stb_image.h"
+
 RwRaster *
 rw_raster_create(int w, int h, int depth, uint32_t flags)
 {
@@ -64,8 +70,32 @@ rw_raster_unlock(RwRaster *r)
 RwImage *
 rw_image_load(const char *filename)
 {
-    (void)filename;
-    return NULL;
+    RwImage *img;
+    int width, height, channels;
+    uint8_t *pixels;
+
+    if (!filename)
+        return NULL;
+
+    pixels = stbi_load(filename, &width, &height, &channels, 4);
+    if (!pixels)
+        return NULL;
+
+    img = rw_malloc(sizeof(*img));
+    if (!img) {
+        stbi_image_free(pixels);
+        return NULL;
+    }
+
+    memset(img, 0, sizeof(*img));
+    img->width = width;
+    img->height = height;
+    img->depth = 32;
+    img->bpp = 4;
+    img->stride = width * 4;
+    img->pixels = pixels;
+    (void)channels;
+    return img;
 }
 
 void
