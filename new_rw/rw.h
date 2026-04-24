@@ -316,6 +316,7 @@ struct RwLight {
     RwRGBAf color;
     float minus_cos_angle;
     RwLink in_world;
+    RwLink in_clump;
     RwClump *clump;
     RwWorld *world;
 };

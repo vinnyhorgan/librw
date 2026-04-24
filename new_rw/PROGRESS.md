@@ -1,6 +1,6 @@
 # rw — Implementation Progress
 
-## Status: Phase 4 CPU GEOMETRY LAYER STARTED — math/frame/material/geometry tests pass
+## Status: Phase 5 CPU SCENE GRAPH STARTED — math/frame/material/geometry/scene tests pass
 
 ## Phase Overview
 
@@ -10,7 +10,7 @@
 | 2. Frame hierarchy | `rw_frame.c` | Done | Transform tree, dirty propagation — math/frame tests pass |
 | 3. GL backend core | `rw_gl.c` (partial), `rw_raster.c`, `rw_material.c` | In progress | CPU material/texture/texdict, raster/image loading done; GL upload/shaders not started |
 | 4. Geometry + Pipeline | `rw_geometry.c`, `rw_pipeline.c` | In progress | CPU geometry allocation, mesh building, bounding sphere done; GPU instancing/render not started |
-| 5. Scene graph | `rw_scene.c` | Not started | Atomic, clump, camera, light, world |
+| 5. Scene graph | `rw_scene.c` | In progress | CPU atomic/clump/world/light/camera basics done; GL clear/render integration pending |
 | 6. Immediate mode | `rw_render.c` | Not started | im2d + im3d |
 | 7. Animation | `rw_skin.c` | Not started | Skin + HAnim |
 | 8. Polish | `test_gta.c`, Makefile | Not started | Integration demo |
@@ -121,19 +121,19 @@
 ## Phase 5: Scene Graph
 
 ### rw_scene.c
-- [ ] rw_atomic_create / destroy / set_geometry / set_frame / set_pipeline / set_render_cb / render
-- [ ] rw_clump_create / destroy / get_frame / set_frame / add_atomic / remove_atomic / add_light / render
-- [ ] rw_world_create / destroy / add_clump / remove_clump / add_light / remove_light / render / enumerate_lights
-- [ ] rw_camera_create / destroy / set_frame / begin_update / end_update / clear / set_fov / set_view_window / set_near_far / frustum_test_sphere
-- [ ] rw_light_create / destroy / set_color / set_radius / set_frame
-- [ ] Camera: view matrix computation (inverse of frame LTM)
-- [ ] Camera: projection matrix computation
+- [x] rw_atomic_create / destroy / set_geometry / set_frame / set_pipeline / set_render_cb / render
+- [x] rw_clump_create / destroy / get_frame / set_frame / add_atomic / remove_atomic / add_light / render
+- [x] rw_world_create / destroy / add_clump / remove_clump / add_light / remove_light / render / enumerate_lights
+- [x] rw_camera_create / destroy / set_frame / begin_update / end_update / clear / set_fov / set_view_window / set_near_far / frustum_test_sphere
+- [x] rw_light_create / destroy / set_color / set_radius / set_frame
+- [x] Camera: view matrix computation (inverse of frame LTM)
+- [x] Camera: projection matrix computation
 - [ ] Camera: frustum plane extraction
-- [ ] World: light enumeration (ambient + directional + local)
-- [ ] World: render loop (iterate clumps → atomics → pipeline)
+- [x] World: light enumeration (ambient + directional + local)
+- [x] World: render loop (iterate clumps → atomics → pipeline)
 
 ### Tests
-- [ ] test_scene.c — full scene with camera, lights, multiple clumps, frustum culling
+- [x] test_scene.c — CPU scene graph coverage for render dispatch, light enumeration, and frustum culling
 
 ## Phase 6: Immediate Mode
 
@@ -184,3 +184,4 @@
 | 2026-04-24 | 3 | Added CPU-side `rw_material.c`, `rw_raster.c`, and `tests/test_material.c`; GL upload/image loading remained pending |
 | 2026-04-24 | 3 | Implemented `rw_image_load` with `stb_image.h` and project allocators; extended material test with runtime TGA loading coverage |
 | 2026-04-24 | 4 | Added CPU-side `rw_geometry.c` and `tests/test_geometry.c`; geometry allocation, default material, trilist mesh grouping, polygon-lock mesh invalidation, and bounding sphere coverage pass |
+| 2026-04-24 | 5 | Added CPU-side `rw_scene.c` and `tests/test_scene.c`; atomics/clumps/world render dispatch, light enumeration, camera update, and simple frustum sphere testing pass |

@@ -1,4 +1,4 @@
-# rw — Phase 4 CPU Geometry Layer Started
+# rw — Phase 5 CPU Scene Graph Started
 
 ## Project
 
@@ -129,9 +129,31 @@ Verified commands:
 - `gcc -std=c99 -Wall -Wextra -Werror -I. tests/test_material.c rw_engine.c rw_material.c rw_raster.c -lm -o test_material && ./test_material`
 - `gcc -std=c99 -Wall -Wextra -Werror -I. tests/test_geometry.c rw_engine.c rw_material.c rw_raster.c rw_geometry.c -lm -o test_geometry && ./test_geometry`
 
-## What's Next: Continue Phase 4 — Pipeline/Scene Prerequisites
+## Phase 5 Progress
 
-Next useful progress is either `rw_pipeline.c` CPU/GPU instance-data scaffolding or `rw_scene.c` atomics/clumps/camera/world. Full triangle rendering still requires GL backend state/shaders and scene/camera pieces.
+Added `new_rw/rw_scene.c` and `new_rw/tests/test_scene.c`.
+
+Implemented CPU-side scene functions:
+- `rw_atomic_create/destroy/set_geometry/set_frame/set_pipeline/set_render_cb/render`
+- `rw_clump_create/destroy/get_frame/set_frame/add_atomic/remove_atomic/add_light/render`
+- `rw_world_create/destroy/add_clump/remove_clump/add_light/remove_light/render/enumerate_lights`
+- `rw_camera_create/destroy/set_frame/begin_update/end_update/clear/set_fov/set_view_window/set_near_far/frustum_test_sphere`
+- `rw_light_create/destroy/set_color/set_radius/set_frame`
+
+Important behavior:
+- Atomics retain assigned geometry with `ref_count` and release it on replacement/destruction.
+- World render iterates clumps, clumps iterate atomics, and atomics invoke render callbacks before pipeline render callbacks.
+- World light enumeration accumulates ambient lights, collects directional lights, and includes point/spot lights whose radius intersects an atomic bounding sphere.
+- Camera begin update computes view matrix by inverting the attached frame LTM and updates a GLES-style projection raw matrix.
+- Frustum sphere testing currently uses view-space near/far and view-window side checks; explicit stored frustum planes remain pending.
+- `RwLight` now has an `in_clump` link so clump-local light lists do not conflict with world light lists.
+
+Verified commands:
+- `gcc -std=c99 -Wall -Wextra -Werror -I. tests/test_scene.c rw_engine.c rw_frame.c rw_material.c rw_raster.c rw_geometry.c rw_scene.c -lm -o test_scene && ./test_scene`
+
+## What's Next: Continue Phase 5 / Phase 4 GL Prerequisites
+
+Next useful progress is either explicit camera frustum plane extraction or the GL-facing Phase 4/3 work: `rw_pipeline.c` instance-data scaffolding plus `rw_gl.c` state/shader/device hooks. Full triangle rendering still requires GL backend state/shaders and pipeline render paths.
 
 ## Build Notes
 - `gcc -std=c99 -Wall -Wextra -Werror`
