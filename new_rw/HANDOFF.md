@@ -9,7 +9,7 @@ Read these first:
 
 ## Current State
 
-The project has complete CPU-side runtime and GL backend infrastructure.
+The project has complete CPU-side runtime and GL backend infrastructure. All existing tests pass.
 
 Implemented first-party source files:
 - `rw.h` (~1027 lines) - public types, structs, enums, APIs, inline math, intrusive lists.
@@ -20,9 +20,9 @@ Implemented first-party source files:
 - `rw_geometry.c` - geometry allocation, mesh grouping, bounding spheres.
 - `rw_scene.c` - atomics, clumps, worlds, cameras, lights, light enumeration, CPU render dispatch.
 - `rw_skin.c` - skin data allocation and CPU HAnim attach/interpolate/update.
-- `rw_gl.c` (~746 lines) - GLES2 state cache, shader compile/link, 7 shader permutations (GLSL ES 1.00), device init/shutdown, texture upload, lighting upload, skin matrix upload, camera matrix upload.
-- `rw_pipeline.c` (~343 lines) - default instance callback (interleaved VBO/IBO packing), default render callback (world matrix → lights → shader select → mesh loop).
-- `rw_gl_internal.h` (~88 lines) - shared internal header for GL backend types/enums/prototypes.
+- `rw_gl.c` (~750 lines) - GLES2 state cache, shader compile/link, 8 shader permutations (GLSL ES 1.00), device init/shutdown, texture upload, lighting upload, skin matrix upload, camera matrix upload.
+- `rw_pipeline.c` (~350 lines) - default instance callback (interleaved VBO/IBO packing), default render callback (world matrix → lights → shader select → mesh loop).
+- `rw_gl_internal.h` (~90 lines) - shared internal header for GL backend types/enums/prototypes.
 
 Current tests (all pass):
 - `tests/test_math.c`, `tests/test_frame.c`, `tests/test_material.c`, `tests/test_geometry.c`, `tests/test_scene.c`, `tests/test_skin.c`
@@ -44,15 +44,15 @@ The last verified run used the checked-in Makefile and passed all current tests 
 Tracks blend, depth test/write, cull face, bound textures, current program. Every GL state change goes through cache checks to skip redundant calls.
 
 ### Shader System
-- 7 permutations compiled at `rw_engine_start` via `compile_all_shaders()`.
-- Permutations: `default`, `default_dir`, `default_dir_point`, `skin_dir_point`, `im2d`, `im3d`, `im3d_lit`.
+- 8 permutations compiled at `rw_engine_start` via `compile_all_shaders()`.
+- Permutations: `default`, `default_dir`, `default_dir_point`, `skin`, `skin_dir_point`, `im2d`, `im3d`, `im3d_lit`.
 - Built by prepending `#define` strings before shared vertex/fragment source.
 - Attribute locations bound via `glBindAttribLocation` before linking: in_pos=0, in_normal=1, in_tex0=2, in_color=3, in_weights=4, in_indices=5.
 - Uniform locations cached per-program in `RwShaderUniforms` structs.
 
 ### Pipeline (`rw_pipeline.c`)
-- `default_instance()`: Computes interleaved stride from geometry flags, packs positions/normals/texcoords/colors/weights/indices into single VBO, packs per-mesh indices into IBO. Stores `RwGlMeshData` in `geometry->gl_data`.
-- `default_render()`: Uploads world matrix, enumerates lights, selects shader permutation, flushes render state, sets up vertex input, iterates meshes uploading material uniforms + binding textures + issuing `glDrawElements`.
+- `default_instance()`: Computes interleaved stride from geometry flags, packs positions/normals/texcoords/colors/weights/indices into single VBO, packs per-mesh indices into IBO. Stores `RwGlMeshData` in `geometry->gl_data`. Re-instance calls `rw_gl_destroy_instance_data` to clean up old GPU buffers. Bone indices are masked to `0x3F` at pack time to stay within the 64-matrix shader limit.
+- `default_render()`: Uploads world matrix, enumerates lights, selects shader permutation, flushes render state, sets up vertex input, iterates meshes uploading material uniforms + binding textures + issuing `glDrawElements`. Early-returns if `mesh_header` is NULL.
 - Default and skin pipelines are static `RwObjPipeline` structs returned by `rw_gl_default_pipeline()` / `rw_gl_skin_pipeline()`.
 
 ### Matrix Upload Convention
@@ -73,14 +73,13 @@ RwMatrix → RwRawMatrix (via `rw_matrix_to_raw`) → transpose (via `rw_raw_mat
 - Current mesh building supports triangle lists only; `RW_GEO_TRISTRIP` intentionally returns failure.
 - `RwClump` owns its current frame. `rw_clump_set_frame` destroys the old owned frame and takes ownership of the new frame.
 
-## Best Next Task
+## Best Next Tasks (Prioritized)
 
-The best next implementation steps:
-1. **GL render test**: Create `test_render.c` using GLFW to create a GL context, load glad, init engine, create a camera with a triangle geometry, render a frame, and verify GL output (readpixels or just no crash).
-2. **Wire `rw_camera_clear`**: Implement `glClear` with color/depth/stencil flags from the camera clear mask.
-3. **Wire `rw_skin_set_pipeline`**: Change from no-op to actually setting the skin pipeline.
-4. **Immediate mode**: Implement `rw_im2d_render_primitive`, `rw_im2d_render_indexed`, `rw_im3d_transform/render/end` with dynamic VBOs.
-5. **Texture upload on raster creation**: Hook `rw_raster_from_image` to call `rw_gl_upload_raster` when GL context is available.
+1. **GL render test** — Create `tests/test_render.c` using GLFW to create a GL context, load glad, init engine, create a camera with a colored triangle geometry, render a frame, and verify via `glReadPixels` (or at minimum assert no GL errors and no crash). This is the highest-value next step because it validates the entire GPU pipeline for the first time. Link the test with `-lglfw` separately; keep the core library windowing-free.
+2. **Wire `rw_camera_clear`** — Implement `glClear` with color/depth/stencil flags from the camera clear mask. `rw_camera_clear` is currently a stub.
+3. **Wire `rw_skin_set_pipeline`** — Change from no-op to actually set `rw_gl_skin_pipeline()` on the atomic/geometry. This is simple plumbing.
+4. **Immediate mode** — Implement `rw_im2d_render_primitive`, `rw_im2d_render_indexed`, `rw_im3d_transform/render/end` with dynamic VBOs. Use the existing `SHADER_IM2D`, `SHADER_IM3D`, and `SHADER_IM3D_LIT` permutations.
+5. **Texture upload on raster creation** — Hook `rw_raster_from_image` to call `rw_gl_upload_raster` when a GL context is available (check `rw_engine` state or a GL-backend flag), so textures are uploaded eagerly rather than lazily during the first render.
 
 ## Do Not Do
 
@@ -92,11 +91,11 @@ The best next implementation steps:
 
 ## Current Known Gaps
 
-- No GL render tests yet. Need a GLFW-based test that exercises the full pipeline.
-- `rw_camera_clear` is still a stub — needs `glClear`.
+- No GL render tests yet. This is the highest priority gap.
+- `rw_camera_clear` is a stub — needs `glClear`.
 - `rw_skin_set_pipeline` is still a no-op.
 - Immediate mode (`rw_im2d_*`, `rw_im3d_*`) is declared but not implemented.
 - `rw_raster_from_image` does CPU copy only; GL upload happens lazily in the render loop.
 - No auto-mipmapping (`glGenerateMipmap`) yet.
 - `RwHAnimHier.anim_data` is borrowed external storage; destroy does not free it.
-- The skin render path in `default_render` doesn't yet call `rw_gl_upload_skin_matrices` — it needs the HAnimHier accessible from the atomic. A convention or user-data field is needed.
+- The skin render path in `default_render` doesn't yet call `rw_gl_upload_skin_matrices` — it needs the `RwHAnimHier` accessible from the atomic. A convention or user-data field is needed. The `RwAtomic` has no skin/HAnim pointer today; consider adding `void *user_data` or a dedicated field once the pipeline wiring is complete.

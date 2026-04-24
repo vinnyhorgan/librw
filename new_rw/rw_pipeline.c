@@ -13,8 +13,7 @@ default_instance(RwAtomic *a)
     if (!geo) return;
 
     if (geo->gl_data) {
-        rw_free(geo->gl_data);
-        geo->gl_data = NULL;
+        rw_gl_destroy_instance_data(geo);
     }
 
     data = rw_malloc(sizeof(RwGlMeshData));
@@ -98,20 +97,16 @@ default_instance(RwAtomic *a)
                 fp[3] = geo->skin->weights[i * 4 + 3];
                 {
                     uint8_t *ip = v + data->indices_offset;
-                    ip[0] = geo->skin->bone_indices[i * 4 + 0];
-                    ip[1] = geo->skin->bone_indices[i * 4 + 1];
-                    ip[2] = geo->skin->bone_indices[i * 4 + 2];
-                    ip[3] = geo->skin->bone_indices[i * 4 + 3];
+                    ip[0] = geo->skin->bone_indices[i * 4 + 0] & 0x3F;
+                    ip[1] = geo->skin->bone_indices[i * 4 + 1] & 0x3F;
+                    ip[2] = geo->skin->bone_indices[i * 4 + 2] & 0x3F;
+                    ip[3] = geo->skin->bone_indices[i * 4 + 3] & 0x3F;
                 }
             }
         }
 
         {
-            unsigned int buffers[2];
-            glGenBuffers(2, buffers);
-            data->vbo = buffers[0];
-            data->ibo = buffers[1];
-
+            glGenBuffers(1, &data->vbo);
             glBindBuffer(GL_ARRAY_BUFFER, data->vbo);
             glBufferData(GL_ARRAY_BUFFER, num_verts * stride, vbuf, GL_STATIC_DRAW);
             rw_free(vbuf);
@@ -132,6 +127,7 @@ default_instance(RwAtomic *a)
                 for (j = 0; j < mesh->num_indices; j++)
                     ibuf[idx++] = mesh->indices[j];
             }
+            glGenBuffers(1, &data->ibo);
             glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, data->ibo);
             glBufferData(GL_ELEMENT_ARRAY_BUFFER,
                          num_indices * sizeof(uint16_t), ibuf, GL_STATIC_DRAW);
@@ -215,6 +211,8 @@ default_render(RwAtomic *a)
 
     geo = a->geometry;
     data = (RwGlMeshData *)geo->gl_data;
+
+    if (!geo->mesh_header) return;
 
     memset(&lights, 0, sizeof(lights));
     if (a->world)

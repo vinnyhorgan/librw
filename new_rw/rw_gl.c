@@ -426,6 +426,9 @@ compile_all_shaders(void)
     if (!build_shader(SHADER_DEFAULT_DIR_POINT,
             "#define DIRECTIONALS\n#define POINTLIGHTS\n",
             default_vert_src, default_frag_src)) return 0;
+    if (!build_shader(SHADER_SKIN,
+            "#define SKIN\n",
+            default_vert_src, default_frag_src)) return 0;
     if (!build_shader(SHADER_SKIN_DIR_POINT,
             "#define DIRECTIONALS\n#define POINTLIGHTS\n#define SKIN\n",
             default_vert_src, default_frag_src)) return 0;
@@ -433,8 +436,7 @@ compile_all_shaders(void)
             im2d_vert_src, im2d_frag_src)) return 0;
     if (!build_shader(SHADER_IM3D, "",
             im3d_vert_src, im3d_frag_src)) return 0;
-    if (!build_shader(SHADER_IM3D_LIT,
-            "#define IM3D\n#define LIGHTING\n",
+    if (!build_shader(SHADER_IM3D_LIT, "",
             im3d_lit_vert_src, im3d_frag_src)) return 0;
     return 1;
 }
@@ -693,8 +695,11 @@ rw_gl_upload_skin_matrices(RwHAnimHier *hier, RwSkin *skin, int shader_idx)
 int
 rw_gl_select_shader(int num_dir, int num_point, int is_skin)
 {
-    if (is_skin)
-        return SHADER_SKIN_DIR_POINT;
+    if (is_skin) {
+        if (num_dir > 0 || num_point > 0)
+            return SHADER_SKIN_DIR_POINT;
+        return SHADER_SKIN;
+    }
     if (num_dir > 0 && num_point > 0)
         return SHADER_DEFAULT_DIR_POINT;
     if (num_dir > 0)
