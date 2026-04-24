@@ -71,6 +71,7 @@ RwShaderUniforms *rw_gl_get_uniforms(int shader_idx);
 unsigned int rw_gl_get_white_texture(void);
 
 void  rw_gl_upload_raster(RwRaster *r);
+void  rw_gl_delete_texture(unsigned int *texid);
 void  rw_gl_set_texture_sampler(RwRaster *r, int filter, int address_u, int address_v);
 
 void  rw_gl_state_flush_render(void);

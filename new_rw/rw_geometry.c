@@ -1,4 +1,5 @@
 #include "rw.h"
+#include "rw_gl_internal.h"
 
 #include <string.h>
 
@@ -98,6 +99,7 @@ rw_geometry_destroy(RwGeometry *geo)
     if (geo->ref_count > 0)
         return;
 
+    rw_gl_destroy_instance_data(geo);
     rw_free(geo->triangles);
     rw_free(geo->colors);
     rw_free(geo->texcoords);

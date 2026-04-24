@@ -485,8 +485,7 @@ rw_gl_upload_raster(RwRaster *r)
     unsigned int texid;
     if (!r || !r->pixels) return;
 
-    if (r->gl.texid)
-        glDeleteTextures(1, &r->gl.texid);
+    rw_gl_delete_texture(&r->gl.texid);
 
     glGenTextures(1, &texid);
     rw_gl_state_bind_texture(0, texid);
@@ -503,6 +502,22 @@ rw_gl_upload_raster(RwRaster *r)
     r->gl.gl_format = GL_RGBA;
     r->gl.gl_type = GL_UNSIGNED_BYTE;
     r->gl.bpp = 4;
+}
+
+void
+rw_gl_delete_texture(unsigned int *texid)
+{
+    int i;
+
+    if (!texid || !*texid)
+        return;
+
+    glDeleteTextures(1, texid);
+    for (i = 0; i < 4; i++) {
+        if (gl_state.bound_texture[i] == *texid)
+            gl_state.bound_texture[i] = 0;
+    }
+    *texid = 0;
 }
 
 void

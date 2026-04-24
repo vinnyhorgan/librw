@@ -1,4 +1,5 @@
 #include "rw.h"
+#include "rw_gl_internal.h"
 
 #include <string.h>
 
@@ -37,6 +38,7 @@ rw_raster_destroy(RwRaster *r)
     if (!r)
         return;
 
+    rw_gl_delete_texture(&r->gl.texid);
     rw_free(r->pixels);
     rw_free(r);
 }
