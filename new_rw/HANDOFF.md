@@ -1,4 +1,4 @@
-# rw — Phase 1 Complete, Continuing Implementation
+# rw — Phase 2 Complete, Continuing Implementation
 
 ## Project
 
@@ -44,19 +44,19 @@ Full spec is in `new_rw/PLAN.md` (~1064 lines). Progress tracking in `new_rw/PRO
 - Ignores local build artifacts (`*.o`, libraries, root-level test executables, build dirs)
 - `new_rw/rw_engine.o` is generated and should remain untracked
 
-## What's Next: Phase 2 — Frame Hierarchy
+## Phase 2 — Frame Hierarchy Complete
 
-Implement `new_rw/rw_frame.c` (~180 lines). Reference: `src/frame.cpp`.
+Implemented `new_rw/rw_frame.c` (~184 lines). Reference: `src/frame.cpp`.
 
-### Required functions:
-- `rw_frame_create` — allocate, init matrix to identity, init ltm, set dirty flags, init in_dirty link
-- `rw_frame_destroy` — remove children recursively, remove from parent, free
-- `rw_frame_add_child` — link into parent's child list (sibling chain), set parent/root pointers
-- `rw_frame_remove_child` — unlink from sibling chain, reparent children or destroy
-- `rw_frame_get_ltm` — if dirty, trigger sync; return &frame->ltm
+### Implemented functions:
+- `rw_frame_create` — allocate, zero, identity local/LTM, init root and dirty link
+- `rw_frame_destroy` — detach from parent, remove from dirty list if needed, recursively destroy children, free
+- `rw_frame_add_child` — append to parent's child list, set parent/root pointers, merge dirty roots
+- `rw_frame_remove_child` — unlink from sibling chain, make detached subtree its own root, mark old/new roots dirty
+- `rw_frame_get_ltm` — sync dirty hierarchy immediately and remove root from dirty list before returning `&frame->ltm`
 - `rw_frame_set_matrix` — copy matrix, mark subtree dirty
-- `rw_frame_translate/rotate/scale` — apply transform with CombineOp, mark dirty
-- `rw_frame_sync_dirty` — iterate frame_dirty_list, recursively recompute LTM for dirty frames
+- `rw_frame_translate/rotate/scale` — apply transform with `RwCombineOp`, mark dirty
+- `rw_frame_sync_dirty` — drain `rw_engine.frame_dirty_list`, recursively recompute LTMs
 
 ### Key algorithms from librw reference:
 - **updateObjects**: When a frame's local matrix changes, mark the hierarchy root with RW_FRAME_HIERARCHYSYNC and add that root to engine's frame_dirty_list if not already present; mark the changed frame with RW_FRAME_SUBTREESYNC.
@@ -68,8 +68,17 @@ Implement `new_rw/rw_frame.c` (~180 lines). Reference: `src/frame.cpp`.
 - Dirty propagation uses the engine's `frame_dirty_list` (intrusive linked list via `in_dirty` link)
 - Frame root pointer should point to the root of the hierarchy
 
-### Test: `test_frame.c`
-Build frame hierarchy, set transforms, call rw_frame_sync_dirty, verify LTM computation matches manual matrix multiplication.
+### Tests
+- `tests/test_math.c` passes before and after Phase 2.
+- `tests/test_frame.c` covers hierarchy creation, required child LTM composition order, `rw_frame_get_ltm` dirty sync, and child detach/new-root behavior.
+
+### Verified commands
+- `gcc -std=c99 -Wall -Wextra -Werror -I. tests/test_math.c rw_engine.c -lm -o test_math && ./test_math`
+- `gcc -std=c99 -Wall -Wextra -Werror -I. tests/test_frame.c rw_engine.c rw_frame.c -lm -o test_frame && ./test_frame`
+
+## What's Next: Phase 3 — GL Backend Core + Textures
+
+Start `rw_gl.c` (partial), `rw_raster.c`, and `rw_material.c` per `PLAN.md` and `PROGRESS.md`.
 
 ## Build Notes
 - `gcc -std=c99 -Wall -Wextra -Werror`

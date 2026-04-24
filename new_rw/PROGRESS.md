@@ -1,13 +1,13 @@
 # rw — Implementation Progress
 
-## Status: Phase 1 FOUNDATION COMPLETE — tests pending
+## Status: Phase 2 FRAME HIERARCHY COMPLETE — tests pass
 
 ## Phase Overview
 
 | Phase | Files | Status | Notes |
 |---|---|---|---|
 | 1. Foundation | `rw.h`, `rw_engine.c` | Done | Types, math, engine lifecycle — strict C99 syntax check passes |
-| 2. Frame hierarchy | `rw_frame.c` | Not started | Transform tree, dirty propagation |
+| 2. Frame hierarchy | `rw_frame.c` | Done | Transform tree, dirty propagation — math/frame tests pass |
 | 3. GL backend core | `rw_gl.c` (partial), `rw_raster.c`, `rw_material.c` | Not started | Shaders, state cache, textures |
 | 4. Geometry + Pipeline | `rw_geometry.c`, `rw_pipeline.c` | Not started | Mesh building, GPU instancing, render |
 | 5. Scene graph | `rw_scene.c` | Not started | Atomic, clump, camera, light, world |
@@ -50,21 +50,21 @@
 ## Phase 2: Frame Hierarchy
 
 ### rw_frame.c
-- [ ] rw_frame_create
-- [ ] rw_frame_destroy
-- [ ] rw_frame_add_child
-- [ ] rw_frame_remove_child
-- [ ] rw_frame_get_ltm (dirty propagation)
-- [ ] rw_frame_set_matrix
-- [ ] rw_frame_translate
-- [ ] rw_frame_rotate
-- [ ] rw_frame_scale
-- [ ] rw_frame_sync_dirty (hierarchy LTM update)
-- [ ] updateObjects (mark dirty, add to dirty list)
-- [ ] syncHierarchyLTM (recursive LTM computation)
+- [x] rw_frame_create
+- [x] rw_frame_destroy
+- [x] rw_frame_add_child
+- [x] rw_frame_remove_child
+- [x] rw_frame_get_ltm (dirty propagation)
+- [x] rw_frame_set_matrix
+- [x] rw_frame_translate
+- [x] rw_frame_rotate
+- [x] rw_frame_scale
+- [x] rw_frame_sync_dirty (hierarchy LTM update)
+- [x] updateObjects (mark dirty, add to dirty list)
+- [x] syncHierarchyLTM (recursive LTM computation)
 
 ### Tests
-- [ ] test_frame.c — hierarchy creation, LTM computation
+- [x] test_frame.c — hierarchy creation, LTM computation
 
 ## Phase 3: GL Backend Core + Textures
 
@@ -178,3 +178,4 @@
 |---|---|---|
 | 2026-04-23 | 1 | rw.h (~460 lines), rw_engine.c (~110 lines) — clean compile with -Wall -Wextra -Werror |
 | 2026-04-24 | 1 | Corrected matrix/raw-matrix math to match RenderWare layout, validated custom memory callbacks, added `new_rw/.gitignore`, removed generated object from tracking, and added `tests/test_math.c` |
+| 2026-04-24 | 2 | Added `rw_frame.c` frame hierarchy with dirty-list LTM sync and `tests/test_frame.c` coverage for hierarchy composition, get-ltm sync, and child detach |
