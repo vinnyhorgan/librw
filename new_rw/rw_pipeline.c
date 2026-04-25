@@ -287,7 +287,7 @@ default_render(RwAtomic *a)
 
             if (mat->texture && mat->texture->raster) {
                 RwRaster *r = mat->texture->raster;
-                if (!r->gl.texid && r->pixels)
+                if ((!r->gl.texid || r->gl.dirty) && r->pixels)
                     rw_gl_upload_raster(r);
                 if (r->gl.texid) {
                     rw_gl_state_bind_texture(0, r->gl.texid);

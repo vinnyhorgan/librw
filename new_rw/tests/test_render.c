@@ -63,7 +63,7 @@ test_texture_mipmap_sampler(void)
 }
 
 static void
-test_render_triangle(int skinned)
+test_render_triangle(int skinned, int point_lit)
 {
     GLFWwindow *win;
     RwGeometry *geo;
@@ -73,6 +73,8 @@ test_render_triangle(int skinned)
     RwCamera *camera;
     RwFrame *cam_frame;
     RwFrame *atomic_frame;
+    RwLight *point = NULL;
+    RwFrame *point_frame = NULL;
     RwMaterial *mat;
     RwSkin *skin = NULL;
     RwHAnimHier *hier = NULL;
@@ -118,9 +120,9 @@ test_render_triangle(int skinned)
     geo->morph_target.normals[0] = (RwV3d){0.0f, 0.0f, -1.0f};
     geo->morph_target.normals[1] = (RwV3d){0.0f, 0.0f, -1.0f};
     geo->morph_target.normals[2] = (RwV3d){0.0f, 0.0f, -1.0f};
-    geo->colors[0] = (RwRGBA){255, 0, 0, 255};
-    geo->colors[1] = (RwRGBA){0, 255, 0, 255};
-    geo->colors[2] = (RwRGBA){0, 0, 255, 255};
+    geo->colors[0] = point_lit ? (RwRGBA){0, 0, 0, 255} : (RwRGBA){255, 0, 0, 255};
+    geo->colors[1] = point_lit ? (RwRGBA){0, 0, 0, 255} : (RwRGBA){0, 255, 0, 255};
+    geo->colors[2] = point_lit ? (RwRGBA){0, 0, 0, 255} : (RwRGBA){0, 0, 255, 255};
     geo->triangles[0].v[0] = 0;
     geo->triangles[0].v[1] = 1;
     geo->triangles[0].v[2] = 2;
@@ -168,6 +170,8 @@ test_render_triangle(int skinned)
 
     rw_atomic_set_geometry(atomic, geo);
     rw_geometry_destroy(geo);
+    if (skinned)
+        rw_frame_translate(atomic_frame, (RwV3d){0.35f, 0.0f, 0.0f}, RW_COMBINE_REPLACE);
     rw_atomic_set_frame(atomic, atomic_frame);
 
     if (skinned) {
@@ -179,6 +183,17 @@ test_render_triangle(int skinned)
     rw_clump_add_atomic(clump, atomic);
     rw_world_add_clump(world, clump);
 
+    if (point_lit) {
+        point = rw_light_create(RW_LIGHT_POINT);
+        point_frame = rw_frame_create();
+        assert(point && point_frame);
+        rw_frame_translate(point_frame, (RwV3d){0.0f, 0.0f, 0.2f}, RW_COMBINE_REPLACE);
+        rw_light_set_frame(point, point_frame);
+        rw_light_set_radius(point, 4.0f);
+        rw_light_set_color(point, (RwRGBAf){1.0f, 1.0f, 1.0f, 1.0f});
+        rw_world_add_light(world, point);
+    }
+
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glViewport(0, 0, w, h);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -189,13 +204,18 @@ test_render_triangle(int skinned)
     fprintf(stderr, "GL error after render: 0x%x\n", err);
     assert(err == GL_NO_ERROR);
 
-    glReadPixels(w / 2, h / 2, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
+    if (skinned)
+        glReadPixels((w * 67) / 100, h / 2, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
+    else
+        glReadPixels(w / 2, h / 2, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
     fprintf(stderr, "center pixel: R=%d G=%d B=%d A=%d\n", pixels[0], pixels[1], pixels[2], pixels[3]);
 
     assert(pixels[0] || pixels[1] || pixels[2]);
 
     rw_clump_destroy(clump);
     rw_frame_destroy(atomic_frame);
+    rw_light_destroy(point);
+    rw_frame_destroy(point_frame);
     rw_hanim_destroy(hier);
     rw_skin_destroy(skin);
     rw_world_destroy(world);
@@ -207,7 +227,7 @@ test_render_triangle(int skinned)
     rw_engine_term();
 
     glfwDestroyWindow(win);
-    fprintf(stderr, "test_render_triangle(%s): PASS\n", skinned ? "skinned" : "default");
+    fprintf(stderr, "test_render_triangle(%s%s): PASS\n", skinned ? "skinned" : "default", point_lit ? ", point" : "");
 }
 
 int
@@ -219,8 +239,9 @@ main(void)
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
     glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
 
-    test_render_triangle(0);
-    test_render_triangle(1);
+    test_render_triangle(0, 0);
+    test_render_triangle(1, 0);
+    test_render_triangle(0, 1);
     test_texture_mipmap_sampler();
 
     glfwTerminate();

@@ -21,6 +21,23 @@ rw_scene_sphere_transform(RwSphere *out, const RwSphere *in, const RwMatrix *m)
     out->radius = in->radius;
 }
 
+static int
+rw_atomic_is_visible(RwAtomic *a)
+{
+    RwCamera *cam = rw_engine.current_camera;
+    RwSphere sphere;
+
+    if (!a || !cam || !a->geometry)
+        return 1;
+
+    sphere = a->bounding_sphere;
+    if (sphere.radius <= 0.0f)
+        return 1;
+    if (a->frame)
+        rw_scene_sphere_transform(&sphere, &a->bounding_sphere, rw_frame_get_ltm(a->frame));
+    return rw_camera_frustum_test_sphere(cam, &sphere);
+}
+
 static void
 rw_camera_update_projection(RwCamera *c)
 {
@@ -149,6 +166,8 @@ void
 rw_atomic_render(RwAtomic *a)
 {
     if (!a)
+        return;
+    if (!rw_atomic_is_visible(a))
         return;
 
     if (a->render_cb)

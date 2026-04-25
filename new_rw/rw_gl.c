@@ -102,7 +102,7 @@ gl_state_reset(void)
 void
 rw_gl_state_flush_render(void)
 {
-    uint32_t *rs = rw_engine.render_states;
+    uintptr_t *rs = rw_engine.render_states;
 
     gl_set_depth_test(rs[RW_STATE_ZTESTENABLE]);
     gl_set_depth_write(rs[RW_STATE_ZWRITEENABLE]);
@@ -121,7 +121,7 @@ rw_gl_state_flush_render(void)
         };
         int src = (rs[RW_STATE_SRCBLEND] < 8) ? blend_map[rs[RW_STATE_SRCBLEND]] : GL_ONE;
         int dst = (rs[RW_STATE_DESTBLEND] < 8) ? blend_map[rs[RW_STATE_DESTBLEND]] : GL_ZERO;
-        int do_blend = (rs[RW_STATE_SRCBLEND] != RW_BLEND_ONE || rs[RW_STATE_DESTBLEND] != RW_BLEND_ZERO);
+        int do_blend = rs[RW_STATE_VERTEXALPHA] != 0;
         gl_set_blend(do_blend, src, dst);
     }
 }
@@ -201,8 +201,8 @@ static const char *default_vert_src =
     "        SkinVertex += (u_bone_matrices[idx] * vec4(in_pos, 1.0)).xyz * in_weights[i];\n"
     "        SkinNormal += (mat3(u_bone_matrices[idx]) * in_normal) * in_weights[i];\n"
     "    }\n"
-    "    Vertex = vec4(SkinVertex, 1.0);\n"
-    "    Normal = SkinNormal;\n"
+    "    Vertex = u_world * vec4(SkinVertex, 1.0);\n"
+    "    Normal = mat3(u_world) * SkinNormal;\n"
     "    #else\n"
     "    Vertex = u_world * vec4(in_pos, 1.0);\n"
     "    Normal = mat3(u_world) * in_normal;\n"
@@ -530,6 +530,7 @@ rw_gl_upload_raster(RwRaster *r)
     r->gl.gl_type = GL_UNSIGNED_BYTE;
     r->gl.bpp = 4;
     r->gl.has_mipmaps = 0;
+    r->gl.dirty = 0;
 }
 
 void
@@ -780,7 +781,7 @@ rw_gl_select_shader(int num_dir, int num_point, int is_skin)
             return SHADER_SKIN_DIR_POINT;
         return SHADER_SKIN;
     }
-    if (num_dir > 0 && num_point > 0)
+    if (num_point > 0)
         return SHADER_DEFAULT_DIR_POINT;
     if (num_dir > 0)
         return SHADER_DEFAULT_DIR;

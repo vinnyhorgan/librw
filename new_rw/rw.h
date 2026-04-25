@@ -245,6 +245,7 @@ typedef struct {
     int bpp;
     unsigned int texid;
     int has_mipmaps;
+    int dirty;
     int filter, address_u, address_v;
     int has_alpha;
 } RwGlRaster;
@@ -388,7 +389,7 @@ typedef struct {
     struct RwCamera *current_camera;
     struct RwWorld  *current_world;
     RwLinkList frame_dirty_list;
-    uint32_t render_states[RW_STATE_NUM_STATES];
+    uintptr_t render_states[RW_STATE_NUM_STATES];
     void *(*malloc)(size_t);
     void *(*realloc)(void*, size_t);
     void  (*free)(void*);
@@ -418,6 +419,8 @@ void rw_engine_term(void);
 
 void     rw_set_render_state(int state, uint32_t value);
 uint32_t rw_get_render_state(int state);
+void     rw_set_render_state_ptr(int state, void *value);
+void    *rw_get_render_state_ptr(int state);
 
 static inline RwV3d
 rw_v3d_add(RwV3d a, RwV3d b)

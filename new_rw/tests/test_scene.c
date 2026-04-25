@@ -155,6 +155,32 @@ test_camera_frustum(void)
     rw_camera_destroy(camera);
 }
 
+static void
+test_render_skips_culled_atomic(void)
+{
+    RwObjPipeline pipe = {NULL, NULL, render_atomic};
+    RwGeometry *geo = rw_geometry_create(1, 0, RW_GEO_POSITIONS);
+    RwAtomic *atomic = rw_atomic_create();
+    RwCamera *camera = rw_camera_create();
+    RwSphere outside = {{10.0f, 0.0f, 5.0f}, 1.0f};
+
+    assert(geo && atomic && camera);
+    rw_camera_set_near_far(camera, 1.0f, 20.0f);
+    rw_camera_set_view_window(camera, 1.0f);
+    rw_camera_begin_update(camera);
+    geo->morph_target.bounding_sphere = outside;
+    rw_atomic_set_geometry(atomic, geo);
+    rw_geometry_destroy(geo);
+    rw_atomic_set_pipeline(atomic, &pipe);
+
+    render_count = 0;
+    rw_atomic_render(atomic);
+    assert(render_count == 0);
+
+    rw_atomic_destroy(atomic);
+    rw_camera_destroy(camera);
+}
+
 int
 main(void)
 {
@@ -163,6 +189,7 @@ main(void)
     test_world_lights();
     test_clump_frame_replacement();
     test_camera_frustum();
+    test_render_skips_culled_atomic();
     rw_engine_term();
     return 0;
 }

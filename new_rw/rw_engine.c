@@ -128,6 +128,21 @@ uint32_t
 rw_get_render_state(int state)
 {
     if (state >= 0 && state < RW_STATE_NUM_STATES)
-        return rw_engine.render_states[state];
+        return (uint32_t)rw_engine.render_states[state];
     return 0;
+}
+
+void
+rw_set_render_state_ptr(int state, void *value)
+{
+    if (state >= 0 && state < RW_STATE_NUM_STATES)
+        rw_engine.render_states[state] = (uintptr_t)value;
+}
+
+void *
+rw_get_render_state_ptr(int state)
+{
+    if (state >= 0 && state < RW_STATE_NUM_STATES)
+        return (void *)rw_engine.render_states[state];
+    return NULL;
 }

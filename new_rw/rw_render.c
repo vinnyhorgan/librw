@@ -69,6 +69,23 @@ rw_im3d_lit_state(RwShaderUniforms *u)
     rw_gl_set_uniform_vec4(u->locations[U_SURF_PROPS], surf);
 }
 
+static void
+rw_im2d_bind_texture(void)
+{
+    RwRaster *r = rw_get_render_state_ptr(RW_STATE_TEXTURERASTER);
+
+    if (r) {
+        if ((!r->gl.texid || r->gl.dirty) && r->pixels)
+            rw_gl_upload_raster(r);
+        if (r->gl.texid) {
+            rw_gl_state_bind_texture(0, r->gl.texid);
+            rw_gl_set_texture_sampler(r, r->gl.filter, r->gl.address_u, r->gl.address_v);
+            return;
+        }
+    }
+    rw_gl_state_bind_texture(0, rw_gl_get_white_texture());
+}
+
 /* ---- im2d ---- */
 
 void
@@ -89,7 +106,7 @@ rw_im2d_render_primitive(RwPrimitiveType type, RwIm2DVertex *verts, int num_vert
     rw_im2d_xform(&xform);
     rw_gl_state_use_program(prog);
     rw_gl_set_uniform_mat4(u->locations[U_XFORM], &xform);
-    rw_gl_state_bind_texture(0, rw_gl_get_white_texture());
+    rw_im2d_bind_texture();
     rw_gl_state_flush_render();
 
     glGenBuffers(1, &vbo);
@@ -132,7 +149,7 @@ rw_im2d_render_indexed(RwPrimitiveType type, RwIm2DVertex *verts, int num_verts,
     rw_im2d_xform(&xform);
     rw_gl_state_use_program(prog);
     rw_gl_set_uniform_mat4(u->locations[U_XFORM], &xform);
-    rw_gl_state_bind_texture(0, rw_gl_get_white_texture());
+    rw_im2d_bind_texture();
     rw_gl_state_flush_render();
 
     glGenBuffers(1, &vbo);

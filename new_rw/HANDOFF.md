@@ -15,7 +15,7 @@ Everything outside `new_rw/` is the original C++ librw codebase and is reference
 
 ## Verified State
 
-The runtime has complete CPU-side core systems, a GLES2 backend, default and skin pipelines, immediate-mode infrastructure, trilist/tristrip mesh rendering, GLES2 auto-mipmapping for valid power-of-two rasters, focused clear/triangle/im2d/im3d render tests, and a GTA-like offscreen integration demo. The current suite passes with strict C99 flags and GLFW offscreen GLES2 render tests.
+The runtime has complete CPU-side core systems, a GLES2 backend, default and skin pipelines, immediate-mode infrastructure, trilist/tristrip mesh rendering, GLES2 auto-mipmapping for valid power-of-two rasters, camera frustum culling during atomic render dispatch, textured im2d through `RW_STATE_TEXTURERASTER`, focused clear/triangle/im2d/im3d render tests, and a GTA-like offscreen integration demo. The current suite passes with strict C99 flags and GLFW offscreen GLES2 render tests.
 
 Verify with:
 
@@ -48,19 +48,25 @@ cc -I. -Ivendor/glad/include -Ivendor/glfw/include -std=c99 -Wall -Wextra -Werro
 
 If this handoff is used before the current changes are committed, expect intentional review/polish changes around tristrip support, GL safety fixes, focused clear/triangle tests, and updated status docs.
 
-Current expected repository-level status before committing:
+Current expected repository-level status before committing these audit fixes:
 
 ```text
  M new_rw/HANDOFF.md
- M new_rw/Makefile
+ M new_rw/PLAN.md
  M new_rw/PROGRESS.md
+ M new_rw/rw.h
+ M new_rw/rw_engine.c
  M new_rw/rw_geometry.c
  M new_rw/rw_gl.c
  M new_rw/rw_pipeline.c
+ M new_rw/rw_raster.c
+ M new_rw/rw_render.c
+ M new_rw/rw_scene.c
  M new_rw/tests/test_geometry.c
+ M new_rw/tests/test_im2d.c
  M new_rw/tests/test_render.c
-?? new_rw/tests/test_clear.c
-?? new_rw/tests/test_triangle.c
+ M new_rw/tests/test_scene.c
+ M new_rw/tests/test_triangle.c
 ```
 
 ## Current Implementation
@@ -75,7 +81,7 @@ Current expected repository-level status before committing:
 - `rw_skin.c` - skin data allocation, CPU HAnim attach/interpolate/update, `rw_skin_set_pipeline` wired to the skin pipeline.
 - `rw_gl.c` - GLES2 state cache, shader compile/link, 8 shader permutations, device init/shutdown, texture upload/mipmap generation, cache-aware texture deletion, lighting upload, skin matrix upload, camera matrix upload.
 - `rw_pipeline.c` - default instance callback and render callback for default and skinned geometry, including tristrip draw mode.
-- `rw_render.c` - im2d/im3d immediate mode with dynamic VBOs.
+- `rw_render.c` - im2d/im3d immediate mode with dynamic VBOs; im2d can sample a raster set through `rw_set_render_state_ptr(RW_STATE_TEXTURERASTER, raster)`.
 - `rw_gl_internal.h` - shared internal GL backend declarations.
 
 ## Recent Completed Work
@@ -90,6 +96,7 @@ Do not redo these unless a regression is found.
 - `tests/test_render.c` renders default and skinned triangles in an offscreen GLFW GLES2 context and checks the center pixel.
 - `tests/test_render.c` covers mipmapped texture sampler setup: valid power-of-two rasters generate mipmaps, while NPOT rasters fall back to non-mip filters without GL errors.
 - `tests/test_im2d.c` renders primitive and indexed im2d quads in an offscreen GLFW GLES2 context and checks the center pixel.
+- `tests/test_im2d.c` also verifies textured im2d rendering and dirty-raster reupload after CPU pixel edits.
 - `tests/test_im3d.c` renders unlit primitive and ambient-lit indexed im3d geometry in an offscreen GLFW GLES2 context and checks center pixels with no GL errors.
 - `tests/test_clear.c` validates `rw_camera_clear()` color/depth clear behavior with a pixel readback.
 - `tests/test_triangle.c` validates default-pipeline triangle rendering, alpha test discard, and alpha blending with pixel readbacks.
@@ -129,6 +136,7 @@ Ownership notes in the test:
 - Attribute locations are fixed before link: `in_pos=0`, `in_normal=1`, `in_tex0=2`, `in_color=3`, `in_weights=4`, `in_indices=5`.
 - Matrix upload convention is `RwMatrix` -> `RwRawMatrix` -> transpose -> `glUniformMatrix4fv`, converting RenderWare row-major layout to GL column-major expectations.
 - `rw_im2d_render_*` maps pixel coordinates through the current camera framebuffer size when present, otherwise through the GL viewport.
+- `RW_STATE_TEXTURERASTER` is pointer-sized internally. Use `rw_set_render_state_ptr` / `rw_get_render_state_ptr` for pointer states; the integer render-state API remains for scalar states.
 - The default engine render state enables back-face culling with `RW_CULL_CCW`; immediate-mode tests that draw screen-space quads should disable culling with `rw_set_render_state(RW_STATE_CULLMODE, RW_CULL_NONE)` unless winding is deliberately tested.
 
 ## Pipeline Notes
@@ -152,7 +160,7 @@ Ownership notes in the test:
 - Intrusive links must be initialized before use and removed before re-linking.
 - `RwGeometry` uses `uint16_t` triangle indices; geometry creation rejects more than `UINT16_MAX` vertices.
 - `RwMeshHeader` is padded to 16 bytes so the `RwMesh` array stored immediately after it remains pointer-aligned.
-- Mesh building supports triangle lists and `RW_GEO_TRISTRIP`. Tristrips are split into contiguous strip meshes when material IDs change.
+- Mesh building supports triangle lists and `RW_GEO_TRISTRIP`. Tristrips are split into separate strip meshes when material IDs change or triangle connectivity is discontinuous.
 - `RwClump` owns its current frame. `rw_clump_set_frame` destroys the old owned frame and takes ownership of the new frame.
 - `RwHAnimHier.anim_data` is borrowed external storage; `rw_hanim_destroy()` does not free it.
 - `RwAtomic.hanim` is borrowed external storage; `rw_atomic_destroy()` does not destroy it.
@@ -168,7 +176,7 @@ Ownership notes in the test:
 ## Current Known Gaps
 
 - `rw_raster_from_image()` does CPU copy only by design; GL upload happens lazily in the render loop or through explicit raster upload.
-- Final line count target is approximate and currently over the original estimate: 4,478 runtime C/header lines as of this handoff.
+- Final line count target is approximate and currently over the original estimate: 4,541 runtime C/header lines as of this handoff.
 
 ## Do Not Do
 

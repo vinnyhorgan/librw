@@ -963,7 +963,6 @@ assert(pixel[0] > 200);  /* verify expected color */
 
 ```bash
 make test        # builds and runs all tests (headless via offscreen rendering)
-make test_vis    # runs tests with visible window (visual check)
 ```
 
 ## 12. Build System (Makefile)

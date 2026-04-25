@@ -142,8 +142,10 @@ test_triangle_render_states(void)
     rw_camera_clear(camera, RW_CAMERA_CLEAR_IMAGE | RW_CAMERA_CLEAR_Z);
     rw_set_render_state(RW_STATE_SRCBLEND, RW_BLEND_SRCALPHA);
     rw_set_render_state(RW_STATE_DESTBLEND, RW_BLEND_INVSRCALPHA);
+    rw_set_render_state(RW_STATE_VERTEXALPHA, 1);
     draw_triangle(255, 0, 0, 128);
     expect_center_near(w, h, 128, 0, 127);
+    rw_set_render_state(RW_STATE_VERTEXALPHA, 0);
 
     err = glGetError();
     fprintf(stderr, "GL error after triangle states: 0x%x\n", err);

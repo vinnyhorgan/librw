@@ -29,6 +29,7 @@ rw_raster_create(int w, int h, int depth, uint32_t flags)
     r->gl.filter = RW_TEX_FILTER_NEAREST;
     r->gl.address_u = RW_TEX_WRAP_WRAP;
     r->gl.address_v = RW_TEX_WRAP_WRAP;
+    r->gl.dirty = 1;
     return r;
 }
 
@@ -50,6 +51,7 @@ rw_raster_lock(RwRaster *r)
 
     if (!r)
         return NULL;
+    r->gl.dirty = 1;
     if (r->pixels)
         return r->pixels;
 
@@ -66,7 +68,8 @@ rw_raster_lock(RwRaster *r)
 void
 rw_raster_unlock(RwRaster *r)
 {
-    (void)r;
+    if (r)
+        r->gl.dirty = 1;
 }
 
 RwImage *
@@ -130,5 +133,6 @@ rw_raster_from_image(RwImage *img)
         return NULL;
     }
     memcpy(r->pixels, img->pixels, size);
+    r->gl.dirty = 1;
     return r;
 }

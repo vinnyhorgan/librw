@@ -34,7 +34,15 @@ static void test_im2d_quads(void) {
       {80.0f, 80.0f, 0.0f, 1.0f, 0, 255, 0, 255, 1.0f, 1.0f},
       {48.0f, 80.0f, 0.0f, 1.0f, 0, 255, 0, 255, 0.0f, 1.0f},
   };
+  RwIm2DVertex white[4] = {
+      {48.0f, 48.0f, 0.0f, 1.0f, 255, 255, 255, 255, 0.0f, 0.0f},
+      {80.0f, 48.0f, 0.0f, 1.0f, 255, 255, 255, 255, 1.0f, 0.0f},
+      {80.0f, 80.0f, 0.0f, 1.0f, 255, 255, 255, 255, 1.0f, 1.0f},
+      {48.0f, 80.0f, 0.0f, 1.0f, 255, 255, 255, 255, 0.0f, 1.0f},
+  };
   uint16_t indices[6] = {0, 1, 2, 0, 2, 3};
+  RwRaster *tex_raster;
+  uint8_t *tex_pixels;
 
   win = glfwCreateWindow(w, h, "test_im2d", NULL, NULL);
   assert(win);
@@ -55,6 +63,27 @@ static void test_im2d_quads(void) {
 
   rw_im2d_render_indexed(RW_PRIM_TRILIST, green, 4, indices, 6);
   expect_pixel(w / 2, h / 2, 0, 255, 0);
+
+  tex_raster = rw_raster_create(1, 1, 32, 0);
+  assert(tex_raster);
+  tex_pixels = rw_raster_lock(tex_raster);
+  assert(tex_pixels);
+  tex_pixels[0] = 0; tex_pixels[1] = 0; tex_pixels[2] = 255; tex_pixels[3] = 255;
+  rw_raster_unlock(tex_raster);
+  rw_set_render_state_ptr(RW_STATE_TEXTURERASTER, tex_raster);
+
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+  rw_im2d_render_indexed(RW_PRIM_TRILIST, white, 4, indices, 6);
+  expect_pixel(w / 2, h / 2, 0, 0, 255);
+
+  tex_pixels = rw_raster_lock(tex_raster);
+  tex_pixels[0] = 255; tex_pixels[1] = 0; tex_pixels[2] = 0; tex_pixels[3] = 255;
+  rw_raster_unlock(tex_raster);
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+  rw_im2d_render_indexed(RW_PRIM_TRILIST, white, 4, indices, 6);
+  expect_pixel(w / 2, h / 2, 255, 0, 0);
+  rw_set_render_state_ptr(RW_STATE_TEXTURERASTER, NULL);
+  rw_raster_destroy(tex_raster);
 
   err = glGetError();
   fprintf(stderr, "GL error after im2d render: 0x%x\n", err);

@@ -15,7 +15,7 @@
 | 7. Animation | `rw_skin.c` | Done | CPU skin + HAnim, skin pipeline wired |
 | 8. Polish | `test_clear.c`, `test_triangle.c`, `test_render.c`, `test_im2d.c`, `test_im3d.c`, `test_gta.c`, Makefile | Done | Focused GL tests, GTA-like integration demo, and review polish complete |
 
-**Total: 4,478 lines of C/header runtime code as of 2026-04-24 (target was approximate).**
+**Total: 4,541 lines of C/header runtime code as of 2026-04-25 (target was approximate).**
 
 ## Phase 1: Foundation
 
@@ -186,7 +186,7 @@
 - [x] Makefile (static library + all current CPU tests)
 - [x] test_im3d.c — focused immediate-mode 3D render coverage
 - [x] test_gta.c — mini GTA-like demo
-- [x] Final line count verification (4,478 runtime C/header lines; target was approximate)
+- [x] Final line count verification (4,541 runtime C/header lines; target was approximate)
 - [x] Code review pass (consistency polish, focused render tests, no GL errors in suite)
 
 ## Change Log
@@ -213,3 +213,4 @@
 | 2026-04-24 | Demo/Test | Added `tests/test_gta.c`, a GLFW offscreen GTA-like integration demo covering a small world, ambient/point lights, fog state, skinned character rendering, and im2d HUD overlay; added it to `GL_TEST_NAMES`; strict `make test` passes |
 | 2026-04-24 | im3d GL | Added `tests/test_im3d.c` covering unlit primitive and ambient-lit indexed im3d rendering in an offscreen GLFW GLES2 context; added it to `GL_TEST_NAMES`; strict `make test` passes |
 | 2026-04-24 | Review/Polish | Added tristrip mesh building/rendering, hardened no-frame GL light upload and skin matrix/weight bounds, fixed render-test material setup, added focused `test_clear.c` and `test_triangle.c` coverage for camera clear, default triangle render, alpha test, and alpha blend; strict `make test` passes |
+| 2026-04-25 | Audit Fixes | Fixed point-only light shader selection, applied atomic world transforms to skinned vertices, wired camera frustum culling into atomic render dispatch, added pointer render-state helpers for textured im2d, made raster locks mark GL textures dirty for reupload, split disconnected tristrips into separate strip meshes, removed stale `test_vis` docs, and added focused regression coverage; strict `make test` passes |

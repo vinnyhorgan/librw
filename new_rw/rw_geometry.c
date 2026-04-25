@@ -66,10 +66,13 @@ rw_geometry_build_tristrip_meshes(RwGeometry *geo)
             total_indices += 3;
         } else {
             uint16_t new_vertex;
-            if (!rw_triangle_new_vertex(&geo->triangles[i - 1], &geo->triangles[i], &new_vertex))
-                goto fail;
-            counts[num_segments - 1]++;
-            total_indices++;
+            if (rw_triangle_new_vertex(&geo->triangles[i - 1], &geo->triangles[i], &new_vertex)) {
+                counts[num_segments - 1]++;
+                total_indices++;
+            } else {
+                counts[num_segments++] = 3;
+                total_indices += 3;
+            }
         }
     }
 
@@ -100,6 +103,9 @@ rw_geometry_build_tristrip_meshes(RwGeometry *geo)
         uint32_t idx;
 
         if (i == 0 || tri->mat_id != geo->triangles[i - 1].mat_id) {
+            segment++;
+            meshes[segment].material = geo->materials[tri->mat_id];
+        } else if (!rw_triangle_new_vertex(&geo->triangles[i - 1], tri, &(uint16_t){0})) {
             segment++;
             meshes[segment].material = geo->materials[tri->mat_id];
         }
