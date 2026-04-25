@@ -33,9 +33,15 @@ GL_TEST_NAMES := clear triangle render im2d im3d gta
 GL_TEST_BINS := $(GL_TEST_NAMES:%=$(BIN_DIR)/test_%)
 GL_TEST_LDLIBS := -lglfw -ldl
 
-.PHONY: all test check clean
+EXAMPLE_NAMES := city_night im2d_primitives im3d_primitives lights_room immediate_playground skin_dancer
+EXAMPLE_BINS := $(EXAMPLE_NAMES:%=$(BIN_DIR)/example_%)
+EXAMPLE_COMMON := examples/example_common.c
+
+.PHONY: all examples test check clean
 
 all: $(LIB) $(TEST_BINS)
+
+examples: $(EXAMPLE_BINS)
 
 $(LIB): $(LIB_OBJS) | $(BUILD_DIR)
 	$(AR) rcs $@ $^
@@ -48,6 +54,9 @@ $(BIN_DIR)/test_%: tests/test_%.c $(LIB) | $(BIN_DIR)
 
 $(GL_TEST_BINS): $(BIN_DIR)/test_%: tests/test_%.c $(LIB) | $(BIN_DIR)
 	$(CC) $(CPPFLAGS) $(CFLAGS) -MMD -MP $< $(LIB) $(LDFLAGS) $(LDLIBS) $(GL_TEST_LDLIBS) -o $@
+
+$(EXAMPLE_BINS): $(BIN_DIR)/example_%: examples/%.c $(EXAMPLE_COMMON) $(LIB) | $(BIN_DIR)
+	$(CC) $(CPPFLAGS) $(CFLAGS) -MMD -MP $< $(EXAMPLE_COMMON) $(LIB) $(LDFLAGS) $(LDLIBS) $(GL_TEST_LDLIBS) -o $@
 
 test check: $(TEST_BINS) $(GL_TEST_BINS)
 	@set -e; for test in $(TEST_BINS) $(GL_TEST_BINS); do printf '%s\n' "==> $$test"; "$$test"; done
